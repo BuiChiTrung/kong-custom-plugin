@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/md5"
-	"fmt"
 	"time"
 
 	"github.com/Kong/go-pdk"
@@ -13,9 +11,10 @@ import (
 
 const NanoSecond = 1e9
 
-var rdb *redis.Client
-var ctx context.Context
+var ctx = context.Background()
 var requestHash string
+var svc Service
+var gKong *pdk.PDK
 
 type Config struct {
 	TTLSeconds  int
@@ -26,25 +25,27 @@ func New() interface{} {
 	return &Config{}
 }
 
-type GraphQLRequest struct {
-	Query string
+func (c Config) Access(kong *pdk.PDK) {
+	gKong = kong
+	c.GenerateCacheKey(kong)
+
+	val, err := rdb.Get(ctx, requestHash).Result()
+	if err == redis.Nil {
+		return
+	} else if err != nil {
+		kong.Log.Err("error get redis key: %w", err)
+	} else {
+		kong.Response.SetHeader("Content-Type", "application/json")
+		kong.Response.Exit(200, val, nil)
+	}
 }
 
-func (c Config) Access(kong *pdk.PDK) {
-	ctx := context.Background()
-
+func (c Config) GenerateCacheKey(kong *pdk.PDK) {
 	requestBody, err := kong.Request.GetRawBody()
 	if err != nil {
-		kong.Log.Err("error get request body: %v", err)
+		kong.Log.Err("err get request body: ", err)
 		return
 	}
-
-	graphQLAstBytes, err := Az(string(requestBody))
-	if err != nil {
-		kong.Log.Err(err)
-		return
-	}
-	kong.Log.Notice(string(graphQLAstBytes))
 
 	var requestHeader string
 	for _, header := range c.VaryHeaders {
@@ -55,18 +56,9 @@ func (c Config) Access(kong *pdk.PDK) {
 		requestHeader += headerContent
 	}
 
-	request := append([]byte(requestHeader), graphQLAstBytes...)
-	requestHashByte := md5.Sum(request)
-	requestHash = fmt.Sprintf("%x", string(requestHashByte[:]))
-
-	val, err := rdb.Get(ctx, requestHash).Result()
-	if err == redis.Nil {
-		return
-	} else if err != nil {
-		kong.Log.Err("error get redis")
-	} else {
-		kong.Response.SetHeader("Content-Type", "application/json")
-		kong.Response.Exit(200, val, nil)
+	requestHash, err = svc.GenerateCacheKey(requestBody, []byte(requestHeader))
+	if err != nil {
+		kong.Log.Err(err)
 	}
 }
 
@@ -75,20 +67,18 @@ func (c Config) Response(kong *pdk.PDK) {
 }
 
 func (c Config) Log(kong *pdk.PDK) {
-	currentBody, err := kong.ServiceResponse.GetRawBody()
+	responseBody, err := kong.ServiceResponse.GetRawBody()
 	if err != nil {
 		kong.Log.Err("error get service response: %v", err)
 	}
 
-	kong.Log.Notice("ahah")
-	kong.Log.Notice(requestHash)
-	kong.Log.Notice(currentBody)
-	kong.Log.Notice("ahah")
+	kong.Log.Notice("[Log]", requestHash)
+	kong.Log.Notice("[Log]", responseBody)
 
 	_, err = rdb.Get(ctx, requestHash).Result()
 	if err == redis.Nil {
-		if err := rdb.Set(ctx, requestHash, currentBody, time.Duration(c.TTLSeconds*NanoSecond)); err != nil {
-			kong.Log.Err("error set redis: %v", err)
+		if err := rdb.Set(ctx, requestHash, responseBody, time.Duration(c.TTLSeconds*NanoSecond)); err != nil {
+			kong.Log.Err("error set redis key: %w", err)
 		}
 	}
 }
@@ -99,8 +89,6 @@ func main() {
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
-
-	ctx = context.Background()
 
 	Version := "1.1"
 	Priority := 1
