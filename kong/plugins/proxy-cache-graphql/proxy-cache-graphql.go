@@ -18,11 +18,16 @@ var ctx context.Context
 var requestHash string
 
 type Config struct {
-	TTLSeconds int
+	TTLSeconds  int
+	VaryHeaders []string
 }
 
 func New() interface{} {
 	return &Config{}
+}
+
+type GraphQLRequest struct {
+	Query string
 }
 
 func (c Config) Access(kong *pdk.PDK) {
@@ -31,10 +36,28 @@ func (c Config) Access(kong *pdk.PDK) {
 	requestBody, err := kong.Request.GetRawBody()
 	if err != nil {
 		kong.Log.Err("error get request body: %v", err)
+		return
 	}
 
-	a := md5.Sum(requestBody)
-	requestHash = fmt.Sprintf("%x", string(a[:]))
+	graphQLAstBytes, err := Az(string(requestBody))
+	if err != nil {
+		kong.Log.Err(err)
+		return
+	}
+	kong.Log.Notice(string(graphQLAstBytes))
+
+	var requestHeader string
+	for _, header := range c.VaryHeaders {
+		headerContent, err := kong.Request.GetHeader(header)
+		if err != nil {
+			kong.Log.Notice(header, " header is not provided")
+		}
+		requestHeader += headerContent
+	}
+
+	request := append([]byte(requestHeader), graphQLAstBytes...)
+	requestHashByte := md5.Sum(request)
+	requestHash = fmt.Sprintf("%x", string(requestHashByte[:]))
 
 	val, err := rdb.Get(ctx, requestHash).Result()
 	if err == redis.Nil {

@@ -13,11 +13,6 @@ type DelCacheKeyResponse struct {
 	FormalResponse
 }
 
-type FormalResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
 type UpsertCacheKeyRequest struct {
 	CacheKey string `json:"cacheKey"`
 	Value    string `json:"value"`
@@ -25,4 +20,13 @@ type UpsertCacheKeyRequest struct {
 
 type UpsertCacheKeyResponse struct {
 	FormalResponse
+}
+
+type FlushCacheKeyResponse struct {
+	FormalResponse
+}
+
+type FormalResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }

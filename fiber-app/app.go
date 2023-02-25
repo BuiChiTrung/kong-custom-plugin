@@ -53,6 +53,21 @@ func DelCacheKeyHandler(c *fiber.Ctx) error {
 	return c.Status(response.Code).JSON(response)
 }
 
+func FlushCacheKeyHandler(c *fiber.Ctx) error {
+	response := FlushCacheKeyResponse{}
+
+	_, err := rdb.FlushDB(redisCtx).Result()
+	if err != nil {
+		response.Code = fiber.StatusInternalServerError
+		response.Message = "internal server err"
+	}
+
+	response.Code = fiber.StatusOK
+	response.Message = "success"
+
+	return c.Status(response.Code).JSON(response)
+}
+
 func UpsertCacheKeyHandler(c *fiber.Ctx) error {
 	reqBody := UpsertCacheKeyRequest{}
 	response := UpsertCacheKeyResponse{}
@@ -68,7 +83,7 @@ func UpsertCacheKeyHandler(c *fiber.Ctx) error {
 			response.Message = "internal server err"
 		} else {
 			response.Code = fiber.StatusOK
-			response.Message = "success upsert key"
+			response.Message = "success"
 		}
 	} else {
 		response.Code = fiber.StatusInternalServerError
@@ -88,9 +103,12 @@ func main() {
 		DB:       0,  // use default DB
 	})
 
+	//rdb.
+
 	// TODO: trung.bc - key => cache-key
 	app.Get("/proxy-cache/:key", GetCacheKeyHandler)
 	app.Delete("/proxy-cache/:key", DelCacheKeyHandler)
+	app.Delete("/proxy-cache", FlushCacheKeyHandler)
 	app.Post("/proxy-cache", UpsertCacheKeyHandler)
 
 	app.Listen(":3000")

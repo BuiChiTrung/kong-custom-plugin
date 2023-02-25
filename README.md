@@ -8,7 +8,7 @@ This repo contains plugins to enhance the experience of using GraphQL API with K
 ### GraphQL schema version management
 + Not available yet.
 
-## Run
+## Command
 + Start docker containers 
     ```bash
     make up

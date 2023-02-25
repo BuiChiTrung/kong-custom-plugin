@@ -6,6 +6,8 @@ services:
 #      - "9080:8080"
   kong-redis:
     image: redis:latest
+    volumes:
+      - ./db/redis:/data
     ports:
       - "6379:6379"
   kong-database:

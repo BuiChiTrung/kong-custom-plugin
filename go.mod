@@ -11,6 +11,7 @@ require (
 require (
 	github.com/Kong/go-pdk v0.8.0
 	github.com/gofiber/fiber/v2 v2.42.0
+	github.com/graphql-go/graphql v0.8.0
 	github.com/qinains/fastergoding v0.0.2
 	github.com/redis/go-redis/v9 v9.0.2
 )
