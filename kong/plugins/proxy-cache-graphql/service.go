@@ -7,14 +7,39 @@ import (
 	"github.com/graphql-go/graphql/language/parser"
 	"github.com/graphql-go/graphql/language/source"
 	"github.com/redis/go-redis/v9"
+	"time"
 )
 
 type Service struct {
 	rdb *redis.Client
 }
 
-func (s *Service) NewService() *Service {
-	return &Service{}
+func NewService() *Service {
+	return &Service{redis.NewClient(&redis.Options{
+		Addr:     "kong-redis:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})}
+}
+
+func (s *Service) GetCacheKey(cacheKey string) (string, error) {
+	val, err := s.rdb.Get(ctx, cacheKey).Result()
+	if err != nil {
+		return "", err
+	}
+
+	return val, nil
+}
+
+func (s *Service) InsertCacheKey(cacheKey string, value string, expireNanoSec int64) error {
+	_, err := s.rdb.Get(ctx, cacheKey).Result()
+	if err == redis.Nil {
+		if err := s.rdb.Set(ctx, cacheKey, value, time.Duration(expireNanoSec)).Err(); err != nil {
+			return err
+		}
+	}
+
+	return err
 }
 
 func (s *Service) GenerateCacheKey(requestBody []byte, requestHeader []byte) (string, error) {

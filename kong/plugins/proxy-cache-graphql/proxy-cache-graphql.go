@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"time"
 
 	"github.com/Kong/go-pdk"
 	"github.com/Kong/go-pdk/server"
@@ -13,11 +12,11 @@ const NanoSecond = 1e9
 
 var ctx = context.Background()
 var requestHash string
-var svc Service
+var svc = NewService()
 var gKong *pdk.PDK
 
 type Config struct {
-	TTLSeconds  int
+	TTLSeconds  int64
 	VaryHeaders []string
 }
 
@@ -29,7 +28,7 @@ func (c Config) Access(kong *pdk.PDK) {
 	gKong = kong
 	c.GenerateCacheKey(kong)
 
-	val, err := rdb.Get(ctx, requestHash).Result()
+	val, err := svc.GetCacheKey(requestHash)
 	if err == redis.Nil {
 		return
 	} else if err != nil {
@@ -62,34 +61,25 @@ func (c Config) GenerateCacheKey(kong *pdk.PDK) {
 	}
 }
 
+// Response automatically enables the buffered proxy mode.
 func (c Config) Response(kong *pdk.PDK) {
-	// The presence of the Response handler automatically enables the buffered proxy mode.
 }
 
 func (c Config) Log(kong *pdk.PDK) {
 	responseBody, err := kong.ServiceResponse.GetRawBody()
 	if err != nil {
-		kong.Log.Err("error get service response: %v", err)
+		kong.Log.Err("error get service response: ", err)
 	}
 
 	kong.Log.Notice("[Log]", requestHash)
 	kong.Log.Notice("[Log]", responseBody)
 
-	_, err = rdb.Get(ctx, requestHash).Result()
-	if err == redis.Nil {
-		if err := rdb.Set(ctx, requestHash, responseBody, time.Duration(c.TTLSeconds*NanoSecond)); err != nil {
-			kong.Log.Err("error set redis key: %w", err)
-		}
+	if err := svc.InsertCacheKey(requestHash, responseBody, c.TTLSeconds*NanoSecond); err != nil {
+		kong.Log.Err("error set redis key: ", err)
 	}
 }
 
 func main() {
-	rdb = redis.NewClient(&redis.Options{
-		Addr:     "kong-redis:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-
 	Version := "1.1"
 	Priority := 1
 	_ = server.StartServer(New, Version, Priority)
