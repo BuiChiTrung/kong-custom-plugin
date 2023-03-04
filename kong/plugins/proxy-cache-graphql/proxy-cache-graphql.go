@@ -1,64 +1,70 @@
 package main
 
 import (
-	"context"
-
+	"fmt"
 	"github.com/Kong/go-pdk"
 	"github.com/Kong/go-pdk/server"
 	"github.com/redis/go-redis/v9"
 )
 
-const NanoSecond = 1e9
-
-var ctx = context.Background()
-var requestHash string
-var svc = NewService()
 var gKong *pdk.PDK
 
 type Config struct {
-	TTLSeconds  int64
+	TTLSeconds  int
 	VaryHeaders []string
+	svc         *Service
 }
 
 func New() interface{} {
-	return &Config{}
+	return &Config{
+		svc: NewService(),
+	}
 }
 
 func (c Config) Access(kong *pdk.PDK) {
 	gKong = kong
-	c.GenerateCacheKey(kong)
+	cacheKey, err := c.GenerateCacheKey(kong)
+	if err != nil {
+		kong.Log.Err(err.Error())
+		return
+	}
 
-	val, err := svc.GetCacheKey(requestHash)
+	if err := kong.Ctx.SetShared(CacheKey, cacheKey); err != nil {
+		kong.Log.Err("err set shared context: ", err.Error())
+		return
+	}
+
+	cacheVal, err := c.svc.GetCacheKey(cacheKey)
 	if err == redis.Nil {
 		return
 	} else if err != nil {
 		kong.Log.Err("error get redis key: %w", err)
 	} else {
 		kong.Response.SetHeader("Content-Type", "application/json")
-		kong.Response.Exit(200, val, nil)
+		kong.Response.Exit(200, cacheVal, nil)
 	}
 }
 
-func (c Config) GenerateCacheKey(kong *pdk.PDK) {
+func (c Config) GenerateCacheKey(kong *pdk.PDK) (string, error) {
 	requestBody, err := kong.Request.GetRawBody()
 	if err != nil {
-		kong.Log.Err("err get request body: ", err)
-		return
+		return "", fmt.Errorf("err get request body: %w", err)
 	}
 
 	var requestHeader string
 	for _, header := range c.VaryHeaders {
-		headerContent, err := kong.Request.GetHeader(header)
-		if err != nil {
-			kong.Log.Notice(header, " header is not provided")
-		}
+		headerContent, _ := kong.Request.GetHeader(header)
 		requestHeader += headerContent
 	}
 
-	requestHash, err = svc.GenerateCacheKey(requestBody, []byte(requestHeader))
+	requestPath, _ := kong.Request.GetPath()
+
+	cacheKey, err := c.svc.GenerateCacheKey(requestBody, []byte(requestHeader), requestPath)
 	if err != nil {
-		kong.Log.Err(err)
+		return "", err
 	}
+
+	return cacheKey, nil
 }
 
 // Response automatically enables the buffered proxy mode.
@@ -71,10 +77,15 @@ func (c Config) Log(kong *pdk.PDK) {
 		kong.Log.Err("error get service response: ", err)
 	}
 
-	kong.Log.Notice("[Log]", requestHash)
+	cacheKey, err := kong.Ctx.GetSharedString(CacheKey)
+	if err != nil {
+		kong.Log.Err("err get shared context: ", err.Error())
+	}
+
+	kong.Log.Notice("[Log]", cacheKey)
 	kong.Log.Notice("[Log]", responseBody)
 
-	if err := svc.InsertCacheKey(requestHash, responseBody, c.TTLSeconds*NanoSecond); err != nil {
+	if err := c.svc.InsertCacheKey(cacheKey, responseBody, int64(c.TTLSeconds)*int64(NanoSecond)); err != nil {
 		kong.Log.Err("error set redis key: ", err)
 	}
 }
