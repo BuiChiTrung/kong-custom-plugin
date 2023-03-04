@@ -1,0 +1,109 @@
+{
+  "Kind": "Document",
+  "Loc": null,
+  "Definitions": [
+    {
+      "Kind": "OperationDefinition",
+      "Loc": null,
+      "Operation": "query",
+      "Name": {
+        "Kind": "Name",
+        "Loc": null,
+        "Value": "Query"
+      },
+      "VariableDefinitions": [],
+      "Directives": [],
+      "SelectionSet": {
+        "Kind": "SelectionSet",
+        "Loc": null,
+        "Selections": [
+          {
+            "Kind": "Field",
+            "Loc": null,
+            "Alias": null,
+            "Name": {
+              "Kind": "Name",
+              "Loc": null,
+              "Value": "country"
+            },
+            "Arguments": [
+              {
+                "Kind": "Argument",
+                "Loc": null,
+                "Name": {
+                  "Kind": "Name",
+                  "Loc": null,
+                  "Value": "code"
+                },
+                "Value": {
+                  "Kind": "StringValue",
+                  "Loc": null,
+                  "Value": "TL"
+                }
+              }
+            ],
+            "Directives": [],
+            "SelectionSet": {
+              "Kind": "SelectionSet",
+              "Loc": null,
+              "Selections": [
+                {
+                  "Kind": "Field",
+                  "Loc": null,
+                  "Alias": null,
+                  "Name": {
+                    "Kind": "Name",
+                    "Loc": null,
+                    "Value": "name"
+                  },
+                  "Arguments": [],
+                  "Directives": [],
+                  "SelectionSet": null
+                },
+                {
+                  "Kind": "Field",
+                  "Loc": null,
+                  "Alias": null,
+                  "Name": {
+                    "Kind": "Name",
+                    "Loc": null,
+                    "Value": "native"
+                  },
+                  "Arguments": [],
+                  "Directives": [],
+                  "SelectionSet": null
+                },
+                {
+                  "Kind": "Field",
+                  "Loc": null,
+                  "Alias": null,
+                  "Name": {
+                    "Kind": "Name",
+                    "Loc": null,
+                    "Value": "capital"
+                  },
+                  "Arguments": [],
+                  "Directives": [],
+                  "SelectionSet": null
+                },
+                {
+                  "Kind": "Field",
+                  "Loc": null,
+                  "Alias": null,
+                  "Name": {
+                    "Kind": "Name",
+                    "Loc": null,
+                    "Value": "emoji"
+                  },
+                  "Arguments": [],
+                  "Directives": [],
+                  "SelectionSet": null
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -85,6 +85,10 @@ func (c Config) Log(kong *pdk.PDK) {
 	kong.Log.Notice("[Log]", cacheKey)
 	kong.Log.Notice("[Log]", responseBody)
 
+	if responseBody == "" {
+		return
+	}
+
 	if err := c.svc.InsertCacheKey(cacheKey, responseBody, int64(c.TTLSeconds)*int64(NanoSecond)); err != nil {
 		kong.Log.Err("error set redis key: ", err)
 	}
