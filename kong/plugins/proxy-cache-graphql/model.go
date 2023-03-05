@@ -1,5 +1,6 @@
 package main
 
 type GraphQLRequest struct {
-	Query string
+	Query     string
+	Variables map[string]interface{}
 }

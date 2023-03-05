@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/graphql-go/graphql/language/ast"
 	"reflect"
+	"sort"
 	"time"
 
 	"github.com/graphql-go/graphql/language/parser"
@@ -51,43 +52,46 @@ func (s *Service) InsertCacheKey(cacheKey string, value string, expireNanoSec in
 }
 
 func (s *Service) GenerateCacheKey(requestBody []byte, requestHeader []byte, requestPath string) (string, error) {
-	graphQLAstBytes, err := s.GetAndNormalizeGraphQLAst(requestBody)
+	var graphQLReq GraphQLRequest
+	if err := json.Unmarshal(requestBody, &graphQLReq); err != nil {
+		return "", fmt.Errorf("err GenerateCacheKey unmarshal request body: %w", err)
+	}
+	// TODO: trung.bc - fix quy ve dang []byte or string
+	graphQLAST, err := s.GetAndNormalizeGraphQLAst(graphQLReq.Query)
 	if err != nil {
 		return "", err
 	}
+
+	graphQLAstBytes, err := json.Marshal(graphQLAST)
+	if err != nil {
+		return "", fmt.Errorf("err GenerateCacheKey marshal graphQLAst: %w", err)
+	}
 	gKong.Log.Notice(string(graphQLAstBytes))
 
+	graphQlVariableStr := s.NormalizeGraphQLVariable(graphQLReq.Variables)
+
 	request := append(requestHeader, graphQLAstBytes...)
+	request = append(request, []byte(graphQlVariableStr)...)
 	requestHashBytes := md5.Sum(request)
 	requestHash := fmt.Sprintf("%s/%x", requestPath, string(requestHashBytes[:]))
 
 	return requestHash, nil
 }
 
-func (s *Service) GetAndNormalizeGraphQLAst(requestBody []byte) ([]byte, error) {
-	graphQLAST, err := s.GetGraphQLAst(requestBody)
+func (s *Service) GetAndNormalizeGraphQLAst(graphQLQuery string) (*ast.Document, error) {
+	graphQLAST, err := s.GetGraphQLAst(graphQLQuery)
 	if err != nil {
 		return nil, err
 	}
 
 	s.NormalizeGraphQLAST(reflect.ValueOf(graphQLAST).Elem())
 
-	graphQLAstBytes, err := json.Marshal(graphQLAST)
-	if err != nil {
-		return nil, fmt.Errorf("err marshal indent: %w", err)
-	}
-
-	return graphQLAstBytes, nil
+	return graphQLAST, err
 }
 
-func (s *Service) GetGraphQLAst(requestBody []byte) (*ast.Document, error) {
-	var graphQLReq GraphQLRequest
-	if err := json.Unmarshal(requestBody, &graphQLReq); err != nil {
-		return nil, fmt.Errorf("err unmarshal request body: %w", err)
-	}
-
+func (s *Service) GetGraphQLAst(graphQLQuery string) (*ast.Document, error) {
 	source := source.NewSource(&source.Source{
-		Body: []byte(graphQLReq.Query),
+		Body: []byte(graphQLQuery),
 		Name: "",
 	})
 	graphQLAst, err := parser.Parse(parser.ParseParams{
@@ -98,10 +102,25 @@ func (s *Service) GetGraphQLAst(requestBody []byte) (*ast.Document, error) {
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("err parsing graphql req: %w", err)
+		return nil, fmt.Errorf("err GetGraphQLAst parsing graphql req: %w", err)
 	}
 
 	return graphQLAst, nil
+}
+
+func (s *Service) NormalizeGraphQLVariable(variableMp map[string]interface{}) (variableStr string) {
+	keys := make([]string, 0, len(variableMp))
+
+	for key := range variableMp {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		variableStr += fmt.Sprintf("%s:%v,", key, variableMp[key])
+	}
+
+	return variableStr
 }
 
 func (s *Service) NormalizeGraphQLAST(nodeVal reflect.Value) {
@@ -115,8 +134,9 @@ func (s *Service) NormalizeGraphQLAST(nodeVal reflect.Value) {
 
 		switch subNodeVal.Kind() {
 		case reflect.Interface:
-			s.NormalizeGraphQLAST(subNodeVal.Elem().Elem())
-			//s.NormalizeGraphQLAST(reflect.ValueOf(subNodeVal.Interface()).Elem())
+			if subNodeVal.Elem().Kind() != reflect.Invalid {
+				s.NormalizeGraphQLAST(subNodeVal.Elem().Elem())
+			}
 		case reflect.Ptr:
 			s.NormalizeGraphQLAST(subNodeVal.Elem())
 		case reflect.Struct:
@@ -136,8 +156,6 @@ func (s *Service) sortSliceNode(nodeVal reflect.Value) {
 		for j := i + 1; j < nodeVal.Len(); j++ {
 			hashNodeI := s.hashNodeVal(nodeVal.Index(i))
 			hashNodeJ := s.hashNodeVal(nodeVal.Index(j))
-
-			//fmt.Println(i, hashNodeI, j, hashNodeJ)
 
 			if hashNodeI > hashNodeJ {
 				tmp := reflect.ValueOf(nodeVal.Index(i).Interface())
