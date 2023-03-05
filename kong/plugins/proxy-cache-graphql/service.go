@@ -56,6 +56,7 @@ func (s *Service) GenerateCacheKey(requestBody []byte, requestHeader []byte, req
 	if err := json.Unmarshal(requestBody, &graphQLReq); err != nil {
 		return "", fmt.Errorf("err GenerateCacheKey unmarshal request body: %w", err)
 	}
+
 	// TODO: trung.bc - fix quy ve dang []byte or string
 	graphQLAST, err := s.GetAndNormalizeGraphQLAst(graphQLReq.Query)
 	if err != nil {
