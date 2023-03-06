@@ -16,17 +16,78 @@ func (suite *ServiceSuite) SetupSuite() {
 	suite.svc = NewService()
 }
 
-func (suite *ServiceSuite) TestGetAndNormalizeGraphQLAst() {
+func (suite *ServiceSuite) TestGenerateCacheKey() {
 	type TestCase struct {
+		testDesc               string
+		testID                 int
 		requestBody            string
 		similarRequestBodyList []string
 	}
 
-	testcases := []TestCase{
-		// 0. Change the order of field & add comment
+	testCases := []TestCase{
 		{
-			requestBody: "query Query{country(code: \"VN\"){native,emoji,name,capital}}",
+			testID:      0,
+			testDesc:    "Github",
+			requestBody: "{\"query\":\"query Repository($name: String!, $owner: String!, $followRenames: Boolean) {\\n  repository(name: $name, owner: $owner, followRenames: $followRenames) {\\n    allowUpdateBranch\\n    autoMergeAllowed\\n    id\\n    createdAt\\n    owner {\\n      avatarUrl\\n      id\\n      login\\n      url\\n    }\\n    isPrivate\\n  }\\n}\\n\",\"variables\":{\"name\":\"kong-custom-plugin\",\"owner\":\"BuiChiTrung\",\"followRenames\":true}}",
 			similarRequestBodyList: []string{
+				"{\"query\":\"query Repository($name: String!, $followRenames: Boolean, $owner: String!) {\\n  repository(owner: $owner, followRenames: $followRenames, name: $name) {\\n    allowUpdateBranch\\n    autoMergeAllowed\\n    createdAt\\n    id\\n    isPrivate\\n    owner {\\n      avatarUrl\\n      id\\n      login\\n      url\\n    }\\n  }\\n}\\n\",\"variables\":{\"name\":\"kong-custom-plugin\",\"owner\":\"BuiChiTrung\",\"followRenames\":true}}",
+				"{\"query\":\"query Repository($followRenames: Boolean, $owner: String!, $name: String!) {\\n  repository(name: $name, owner: $owner, followRenames: $followRenames) {\\n    owner {\\n      avatarUrl\\n      id\\n      login\\n      url\\n    }\\n    allowUpdateBranch\\n    autoMergeAllowed\\n    createdAt\\n    id\\n    isPrivate\\n  }\\n}\\n\",\"variables\":{\"name\":\"kong-custom-plugin\",\"followRenames\":true,\"owner\":\"BuiChiTrung\"}}",
+			},
+		},
+		{
+			testID:      1,
+			testDesc:    "Country",
+			requestBody: "{\"query\":\"query {\\n    country(code: \\\"VN\\\") {\\n        native,\\n        capital,\\n        emoji,    \\n        name,\\n    }\\n}\",\"variables\":{}}",
+			similarRequestBodyList: []string{
+				"{\"query\":\"query {\\n    country(code: \\\"VN\\\") {\\n        emoji,    \\n        name,\\n        native,\\n        capital, #aaaa\\n    }\\n}\",\"variables\":{}}",
+				"{\"query\":\"query Countrya {\\n    country(code: \\\"VN\\\") {\\n        name,native,emoji\\n        capital, #aaaa\\n    }\\n}\",\"variables\":{}}",
+			},
+		},
+	}
+
+	skippedTestCases := []int{}
+
+	for _, testCase := range testCases {
+		isSkip := false
+		for _, skippedTestCase := range skippedTestCases {
+			if testCase.testID == skippedTestCase {
+				isSkip = true
+			}
+		}
+		if isSkip {
+			continue
+		}
+
+		expectedCacheKey, err := suite.svc.GenerateCacheKey(testCase.requestBody, "", "")
+		if err != nil {
+			suite.T().Error(err.Error())
+		}
+
+		for _, similarRequestBody := range testCase.similarRequestBodyList {
+			actualCacheKey, err := suite.svc.GenerateCacheKey(similarRequestBody, "", "")
+			if err != nil {
+				suite.T().Error(err.Error())
+			}
+			suite.T().Log(expectedCacheKey, actualCacheKey)
+			assert.Equal(suite.T(), expectedCacheKey, actualCacheKey)
+		}
+	}
+}
+
+func (suite *ServiceSuite) TestGetAndNormalizeGraphQLAst() {
+	type TestCase struct {
+		testDesc                string
+		testID                  int
+		graphQLQuery            string
+		similarGraphQLQueryList []string
+	}
+
+	testCases := []TestCase{
+		{
+			testID:       0,
+			testDesc:     "Change the order of field & add comment",
+			graphQLQuery: "query Query{country(code: \"VN\"){native,emoji,name,capital}}",
+			similarGraphQLQueryList: []string{
 				"query Query{country(code: \"VN\"){name,emoji,capital,native}}",
 				"query Query{country(code: \"VN\"){name,capital,native,emoji}}",
 				"query Query{country(code: \"VN\"){emoji,name,capital,native}}",
@@ -34,28 +95,30 @@ func (suite *ServiceSuite) TestGetAndNormalizeGraphQLAst() {
 				"query Query{country(code: \"VN\") {\n    native,    # country name\n    capital,\n    emoji,    \n    name,\n    #languages {code,name}\n}}",
 			},
 		},
-		// 1. Change the order of argument & field
 		{
-			requestBody: "query Repository {\n  repository(followRenames: false,name: \"kong-custom-plugin\",owner: \"BuiChiTrung\",) {\n    owner {\n      id\n      avatarUrl\n      login  \n    }  \n    isPrivate\n    createdAt\n    autoMergeAllowed\n    allowUpdateBranch\n    id\n  }\n}\n",
-			similarRequestBodyList: []string{
+			testID:       1,
+			testDesc:     "Change the order of argument & field",
+			graphQLQuery: "query Repository {\n  repository(followRenames: false,name: \"kong-custom-plugin\",owner: \"BuiChiTrung\",) {\n    owner {\n      id\n      avatarUrl\n      login  \n    }  \n    isPrivate\n    createdAt\n    autoMergeAllowed\n    allowUpdateBranch\n    id\n  }\n}\n",
+			similarGraphQLQueryList: []string{
 				"query Repository {\n  repository(followRenames: false,owner: \"BuiChiTrung\",name: \"kong-custom-plugin\") {\n    owner {\n      id\n      avatarUrl\n      login  \n    }  \n    isPrivate\n    createdAt\n    autoMergeAllowed\n    allowUpdateBranch\n    id\n  }\n}\n",
 				"query Repository {\n  repository(name: \"kong-custom-plugin\",followRenames: false,owner: \"BuiChiTrung\") {\n    owner {\n      avatarUrl\n      id\n      login  \n    }  \n    autoMergeAllowed\n    allowUpdateBranch\n    id\n    isPrivate\n    createdAt\n  }\n}\n",
 			},
 		},
-		// 2. Omit, change operation name, type
 		{
-			requestBody: "query Query{country(code: \"VN\"){native,emoji,name,capital}}",
-			similarRequestBodyList: []string{
+			testID:       2,
+			testDesc:     "Omit, change operation name, type",
+			graphQLQuery: "query Query{country(code: \"VN\"){native,emoji,name,capital}}",
+			similarGraphQLQueryList: []string{
 				"query AnotherQuery{country(code: \"VN\"){name,emoji,capital,native}}",
 				"query {country(code: \"VN\"){name,capital,native,emoji}}",
 				"{country(code: \"VN\"){emoji,name,capital,native}}",
 			},
 		},
-
-		// 3. Change the order of variable & field
 		{
-			requestBody: "query Repository($name: String!, $owner: String!, $followRenames: Boolean) {\n  repository(name: $name, owner: $owner, followRenames: $followRenames) {\n    allowUpdateBranch\n    autoMergeAllowed\n    createdAt\n    id\n    isPrivate\n    owner {\n      avatarUrl\n      id\n      login\n      url\n    }\n  }\n}",
-			similarRequestBodyList: []string{
+			testID:       3,
+			testDesc:     "Change the order of variable & field",
+			graphQLQuery: "query Repository($name: String!, $owner: String!, $followRenames: Boolean) {\n  repository(name: $name, owner: $owner, followRenames: $followRenames) {\n    allowUpdateBranch\n    autoMergeAllowed\n    createdAt\n    id\n    isPrivate\n    owner {\n      avatarUrl\n      id\n      login\n      url\n    }\n  }\n}",
+			similarGraphQLQueryList: []string{
 				"query Repository($name: String!, $followRenames: Boolean, $owner: String!) {\n  repository(owner: $owner, followRenames: $followRenames, name: $name) {\n    allowUpdateBranch\n    autoMergeAllowed\n    createdAt\n    id\n    isPrivate\n    owner {\n      avatarUrl\n      id\n      login\n      url\n    }\n  }\n}",
 				"query Repository($followRenames: Boolean, $name: String!, $owner: String!) {\n  repository(owner: $owner, name: $name, followRenames: $followRenames) {\n    allowUpdateBranch\n    autoMergeAllowed\n    id\n    createdAt\n    owner {\n      avatarUrl\n      id\n      login\n      url\n    }\n    isPrivate\n  }\n}",
 			},
@@ -65,13 +128,12 @@ func (suite *ServiceSuite) TestGetAndNormalizeGraphQLAst() {
 		// 4. Fragment
 	}
 
-	skippedTestCases := []int{2}
+	skippedTestCases := []int{}
 
-	for i := 0; i < len(testcases); i++ {
-
+	for _, testCase := range testCases {
 		isSkip := false
 		for _, skippedTestCase := range skippedTestCases {
-			if i == skippedTestCase {
+			if testCase.testID == skippedTestCase {
 				isSkip = true
 			}
 		}
@@ -79,19 +141,20 @@ func (suite *ServiceSuite) TestGetAndNormalizeGraphQLAst() {
 			continue
 		}
 
-		expectedAst, err := suite.svc.GetAndNormalizeGraphQLAst(testcases[i].requestBody)
+		expectedAst, err := suite.svc.GetAndNormalizeGraphQLAst(testCase.graphQLQuery)
 		if err != nil {
 			suite.T().Error(err.Error())
 		}
 
-		for _, similarRequestBody := range testcases[i].similarRequestBodyList {
-			actualAst, err := suite.svc.GetAndNormalizeGraphQLAst(similarRequestBody)
+		for _, similarGraphQLQuery := range testCase.similarGraphQLQueryList {
+			actualAst, err := suite.svc.GetAndNormalizeGraphQLAst(similarGraphQLQuery)
 			if err != nil {
 				suite.T().Error(err.Error())
 			}
+			//fmt.Println(getObjJSONString(expectedAst))
+			//fmt.Println(getObjJSONString(actualAst))
 			assert.Equal(suite.T(), getObjJSONString(expectedAst), getObjJSONString(actualAst))
 		}
-
 	}
 }
 

@@ -2,9 +2,8 @@ package main
 
 import "encoding/json"
 
-// TODO: trung.bc - update thí func
 func getObjBytes(obj interface{}) []byte {
-	bytes, _ := json.MarshalIndent(obj, "\t", "\t")
+	bytes, _ := json.Marshal(obj)
 	return bytes
 }
 

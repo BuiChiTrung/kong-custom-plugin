@@ -57,9 +57,12 @@ func (c Config) GenerateCacheKey(kong *pdk.PDK) (string, error) {
 		requestHeader += headerContent
 	}
 
-	requestPath, _ := kong.Request.GetPath()
+	requestPath, err := kong.Request.GetPath()
+	if err != nil {
+		return "", fmt.Errorf("err GenerateCacheKey get req path")
+	}
 
-	cacheKey, err := c.svc.GenerateCacheKey(requestBody, []byte(requestHeader), requestPath)
+	cacheKey, err := c.svc.GenerateCacheKey(string(requestBody), requestHeader, requestPath)
 	if err != nil {
 		return "", err
 	}

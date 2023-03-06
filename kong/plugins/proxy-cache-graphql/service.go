@@ -51,13 +51,12 @@ func (s *Service) InsertCacheKey(cacheKey string, value string, expireNanoSec in
 	return err
 }
 
-func (s *Service) GenerateCacheKey(requestBody []byte, requestHeader []byte, requestPath string) (string, error) {
+func (s *Service) GenerateCacheKey(requestBody string, requestHeader string, requestPath string) (string, error) {
 	var graphQLReq GraphQLRequest
-	if err := json.Unmarshal(requestBody, &graphQLReq); err != nil {
+	if err := json.Unmarshal([]byte(requestBody), &graphQLReq); err != nil {
 		return "", fmt.Errorf("err GenerateCacheKey unmarshal request body: %w", err)
 	}
 
-	// TODO: trung.bc - fix quy ve dang []byte or string
 	graphQLAST, err := s.GetAndNormalizeGraphQLAst(graphQLReq.Query)
 	if err != nil {
 		return "", err
@@ -67,13 +66,12 @@ func (s *Service) GenerateCacheKey(requestBody []byte, requestHeader []byte, req
 	if err != nil {
 		return "", fmt.Errorf("err GenerateCacheKey marshal graphQLAst: %w", err)
 	}
-	gKong.Log.Notice(string(graphQLAstBytes))
+	//gKong.Log.Notice(string(graphQLAstBytes))
 
 	graphQlVariableStr := s.NormalizeGraphQLVariable(graphQLReq.Variables)
 
-	request := append(requestHeader, graphQLAstBytes...)
-	request = append(request, []byte(graphQlVariableStr)...)
-	requestHashBytes := md5.Sum(request)
+	request := fmt.Sprintf("%s%s%s", requestHeader, string(graphQLAstBytes), graphQlVariableStr)
+	requestHashBytes := md5.Sum([]byte(request))
 	requestHash := fmt.Sprintf("%s/%x", requestPath, string(requestHashBytes[:]))
 
 	return requestHash, nil
@@ -85,6 +83,7 @@ func (s *Service) GetAndNormalizeGraphQLAst(graphQLQuery string) (*ast.Document,
 		return nil, err
 	}
 
+	s.NormalizeOperationName(graphQLAST)
 	s.NormalizeGraphQLAST(reflect.ValueOf(graphQLAST).Elem())
 
 	return graphQLAST, err
@@ -109,6 +108,20 @@ func (s *Service) GetGraphQLAst(graphQLQuery string) (*ast.Document, error) {
 	return graphQLAst, nil
 }
 
+func (s *Service) NormalizeOperationName(graphQLAST *ast.Document) {
+	for _, definition := range graphQLAST.Definitions {
+		operationDef, ok := definition.(*ast.OperationDefinition)
+		if !ok {
+			continue
+		}
+
+		operationDef.Name = nil
+		if operationDef.VariableDefinitions == nil {
+			operationDef.VariableDefinitions = make([]*ast.VariableDefinition, 0)
+		}
+	}
+}
+
 func (s *Service) NormalizeGraphQLVariable(variableMp map[string]interface{}) (variableStr string) {
 	keys := make([]string, 0, len(variableMp))
 
@@ -130,7 +143,7 @@ func (s *Service) NormalizeGraphQLAST(nodeVal reflect.Value) {
 	}
 
 	for i := 0; i < nodeVal.NumField(); i++ {
-		fmt.Println(nodeVal.Field(i).Type(), nodeVal.Field(i).Kind())
+		//fmt.Println(nodeVal.Field(i).Type(), nodeVal.Field(i).Kind())
 		subNodeVal := nodeVal.Field(i)
 
 		switch subNodeVal.Kind() {
