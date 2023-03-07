@@ -22,6 +22,7 @@ func (suite *ServiceSuite) TestGenerateCacheKey() {
 		testID                 int
 		requestBody            string
 		similarRequestBodyList []string
+		shouldCached           bool
 	}
 
 	testCases := []TestCase{
@@ -33,6 +34,7 @@ func (suite *ServiceSuite) TestGenerateCacheKey() {
 				"{\"query\":\"query Repository($name: String!, $followRenames: Boolean, $owner: String!) {\\n  repository(owner: $owner, followRenames: $followRenames, name: $name) {\\n    allowUpdateBranch\\n    autoMergeAllowed\\n    createdAt\\n    id\\n    isPrivate\\n    owner {\\n      avatarUrl\\n      id\\n      login\\n      url\\n    }\\n  }\\n}\\n\",\"variables\":{\"name\":\"kong-custom-plugin\",\"owner\":\"BuiChiTrung\",\"followRenames\":true}}",
 				"{\"query\":\"query Repository($followRenames: Boolean, $owner: String!, $name: String!) {\\n  repository(name: $name, owner: $owner, followRenames: $followRenames) {\\n    owner {\\n      avatarUrl\\n      id\\n      login\\n      url\\n    }\\n    allowUpdateBranch\\n    autoMergeAllowed\\n    createdAt\\n    id\\n    isPrivate\\n  }\\n}\\n\",\"variables\":{\"name\":\"kong-custom-plugin\",\"followRenames\":true,\"owner\":\"BuiChiTrung\"}}",
 			},
+			shouldCached: true,
 		},
 		{
 			testID:      1,
@@ -42,6 +44,23 @@ func (suite *ServiceSuite) TestGenerateCacheKey() {
 				"{\"query\":\"query {\\n    country(code: \\\"VN\\\") {\\n        emoji,    \\n        name,\\n        native,\\n        capital, #aaaa\\n    }\\n}\",\"variables\":{}}",
 				"{\"query\":\"query Countrya {\\n    country(code: \\\"VN\\\") {\\n        name,native,emoji\\n        capital, #aaaa\\n    }\\n}\",\"variables\":{}}",
 			},
+			shouldCached: true,
+		},
+		{
+			testID:      2,
+			testDesc:    "Multiple query",
+			requestBody: "{\"query\":\"query Repository($login: String!) {\\n  user(login: $login) {\\n    bio\\n    avatarUrl\\n  }\\n  repository(name: \\\"kong-custom-plugin\\\",followRenames: false,owner: \\\"BuiChiTrung\\\") {\\n    owner {\\n      avatarUrl\\n      id\\n      login  \\n    }  \\n    autoMergeAllowed\\n    allowUpdateBranch\\n    id\\n    isPrivate\\n    createdAt\\n  }\\n}\\n\",\"variables\":{\"name\":\"kong-custom-plugin\",\"followRenames\":true,\"owner\":\"BuiChiTrung\",\"login\":\"octocat\"}}",
+			similarRequestBodyList: []string{
+				"{\"query\":\"query Repository($login: String!) {\\n  repository(name: \\\"kong-custom-plugin\\\",followRenames: false,owner: \\\"BuiChiTrung\\\") {\\n    autoMergeAllowed\\n    allowUpdateBranch\\n    id\\n    isPrivate\\n    createdAt  \\n    owner {\\n      avatarUrl\\n      id\\n      login  \\n    }  \\n  }\\n  user(login: $login) {\\n    bio\\n    avatarUrl\\n  }\\n}\\n\",\"variables\":{\"name\":\"kong-custom-plugin\",\"followRenames\":true,\"login\":\"octocat\",\"owner\":\"BuiChiTrung\"}}",
+				"{\"query\":\"query Repository($login: String!) {\\n  repository(followRenames: false,owner: \\\"BuiChiTrung\\\",name: \\\"kong-custom-plugin\\\") {\\n    autoMergeAllowed\\n    allowUpdateBranch\\n    id\\n    isPrivate\\n    createdAt  \\n    owner {\\n      id\\n      login  \\n      avatarUrl\\n    }  \\n  }\\n  user(login: $login) {\\n    avatarUrl\\n    bio\\n  }\\n}\\n\",\"variables\":{\"name\":\"kong-custom-plugin\",\"followRenames\":true,\"login\":\"octocat\",\"owner\":\"BuiChiTrung\"}}",
+			},
+			shouldCached: true,
+		},
+		{
+			testID:       3,
+			testDesc:     "Shouldn't cache mutation operation",
+			requestBody:  "{\"query\":\"mutation AddReactionToIssue {\\n  addReaction(input:{subjectId:\\\"I_kwDOABPHjc5fqsV6\\\",content:HOORAY}) {\\n    reaction {\\n      content\\n    }\\n    subject {\\n      id\\n    }\\n  }\\n}\",\"variables\":{}}",
+			shouldCached: false,
 		},
 	}
 
@@ -58,13 +77,15 @@ func (suite *ServiceSuite) TestGenerateCacheKey() {
 			continue
 		}
 
-		expectedCacheKey, err := suite.svc.GenerateCacheKey(testCase.requestBody, "", "")
+		expectedCacheKey, shouldCached, err := suite.svc.GenerateCacheKey(testCase.requestBody, "", "")
 		if err != nil {
 			suite.T().Error(err.Error())
 		}
 
+		assert.Equal(suite.T(), testCase.shouldCached, shouldCached)
+
 		for _, similarRequestBody := range testCase.similarRequestBodyList {
-			actualCacheKey, err := suite.svc.GenerateCacheKey(similarRequestBody, "", "")
+			actualCacheKey, _, err := suite.svc.GenerateCacheKey(similarRequestBody, "", "")
 			if err != nil {
 				suite.T().Error(err.Error())
 			}

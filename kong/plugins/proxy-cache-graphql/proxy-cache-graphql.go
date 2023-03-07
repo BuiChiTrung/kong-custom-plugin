@@ -23,9 +23,13 @@ func New() interface{} {
 
 func (c Config) Access(kong *pdk.PDK) {
 	gKong = kong
-	cacheKey, err := c.GenerateCacheKey(kong)
+	cacheKey, shouldCached, err := c.GenerateCacheKey(kong)
 	if err != nil {
 		kong.Log.Err(err.Error())
+		return
+	}
+	if !shouldCached {
+		kong.Response.SetHeader("X-Cache-Status", string(Bypass))
 		return
 	}
 
@@ -35,20 +39,24 @@ func (c Config) Access(kong *pdk.PDK) {
 	}
 
 	cacheVal, err := c.svc.GetCacheKey(cacheKey)
-	if err == redis.Nil {
-		return
-	} else if err != nil {
+	if err != nil {
+		kong.Response.SetHeader("X-Cache-Status", string(Miss))
+		if err == redis.Nil {
+			return
+		}
 		kong.Log.Err("error get redis key: %w", err)
 	} else {
 		kong.Response.SetHeader("Content-Type", "application/json")
+		kong.Response.SetHeader("X-Cache-Key", cacheKey)
+		kong.Response.SetHeader("X-Cache-Status", string(Hit))
 		kong.Response.Exit(200, cacheVal, nil)
 	}
 }
 
-func (c Config) GenerateCacheKey(kong *pdk.PDK) (string, error) {
+func (c Config) GenerateCacheKey(kong *pdk.PDK) (cacheKey string, shouldCached bool, err error) {
 	requestBody, err := kong.Request.GetRawBody()
 	if err != nil {
-		return "", fmt.Errorf("err get request body: %w", err)
+		return "", false, fmt.Errorf("err get request body: %w", err)
 	}
 
 	var requestHeader string
@@ -59,15 +67,15 @@ func (c Config) GenerateCacheKey(kong *pdk.PDK) (string, error) {
 
 	requestPath, err := kong.Request.GetPath()
 	if err != nil {
-		return "", fmt.Errorf("err GenerateCacheKey get req path")
+		return "", false, fmt.Errorf("err GenerateCacheKey get req path")
 	}
 
-	cacheKey, err := c.svc.GenerateCacheKey(string(requestBody), requestHeader, requestPath)
+	cacheKey, shouldCached, err = c.svc.GenerateCacheKey(string(requestBody), requestHeader, requestPath)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
-	return cacheKey, nil
+	return cacheKey, shouldCached, nil
 }
 
 // Response automatically enables the buffered proxy mode.

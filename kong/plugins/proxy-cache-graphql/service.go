@@ -51,20 +51,25 @@ func (s *Service) InsertCacheKey(cacheKey string, value string, expireNanoSec in
 	return err
 }
 
-func (s *Service) GenerateCacheKey(requestBody string, requestHeader string, requestPath string) (string, error) {
+func (s *Service) GenerateCacheKey(requestBody string, requestHeader string, requestPath string) (cacheKey string, shouldCached bool, err error) {
 	var graphQLReq GraphQLRequest
 	if err := json.Unmarshal([]byte(requestBody), &graphQLReq); err != nil {
-		return "", fmt.Errorf("err GenerateCacheKey unmarshal request body: %w", err)
+		return "", false, fmt.Errorf("err GenerateCacheKey unmarshal request body: %w", err)
 	}
 
 	graphQLAST, err := s.GetAndNormalizeGraphQLAst(graphQLReq.Query)
 	if err != nil {
-		return "", err
+		return "", false, err
+	}
+
+	shouldCached = s.reqOperationIsQuery(graphQLAST)
+	if !shouldCached {
+		return "", shouldCached, err
 	}
 
 	graphQLAstBytes, err := json.Marshal(graphQLAST)
 	if err != nil {
-		return "", fmt.Errorf("err GenerateCacheKey marshal graphQLAst: %w", err)
+		return "", false, fmt.Errorf("err GenerateCacheKey marshal graphQLAst: %w", err)
 	}
 	//gKong.Log.Notice(string(graphQLAstBytes))
 
@@ -74,7 +79,22 @@ func (s *Service) GenerateCacheKey(requestBody string, requestHeader string, req
 	requestHashBytes := md5.Sum([]byte(request))
 	requestHash := fmt.Sprintf("%s/%x", requestPath, string(requestHashBytes[:]))
 
-	return requestHash, nil
+	return requestHash, true, nil
+}
+
+func (s *Service) reqOperationIsQuery(graphQLAST *ast.Document) bool {
+	for _, definition := range graphQLAST.Definitions {
+		operationDef, ok := definition.(*ast.OperationDefinition)
+		if !ok {
+			continue
+		}
+
+		if operationDef.Operation != string(Query) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (s *Service) GetAndNormalizeGraphQLAst(graphQLQuery string) (*ast.Document, error) {

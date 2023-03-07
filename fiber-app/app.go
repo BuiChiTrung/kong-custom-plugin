@@ -47,7 +47,7 @@ func DelCacheKeyHandler(c *fiber.Ctx) error {
 			response.Code = fiber.StatusInternalServerError
 			response.Message = "internal server err"
 		}
-		response.Code = fiber.StatusOK
+		response.Code = fiber.StatusNoContent
 		response.Message = "success"
 	}
 	return c.Status(response.Code).JSON(response)
@@ -62,7 +62,7 @@ func FlushCacheKeyHandler(c *fiber.Ctx) error {
 		response.Message = "internal server err"
 	}
 
-	response.Code = fiber.StatusOK
+	response.Code = fiber.StatusNoContent
 	response.Message = "success"
 
 	return c.Status(response.Code).JSON(response)
