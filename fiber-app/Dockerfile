@@ -5,10 +5,10 @@ FROM golang:latest
 WORKDIR /fiber-app
 
 # Copy the application source files to the container
-COPY .. .
+COPY . .
 
 # Expose port 8080 for the application to listen on
-EXPOSE 3000
+EXPOSE 9080
 
 # Define the command to run the application
 CMD ["go", "run", "."]

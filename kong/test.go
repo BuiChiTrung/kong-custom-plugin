@@ -6,6 +6,7 @@ import (
 	"github.com/graphql-go/graphql/language/parser"
 	"github.com/graphql-go/graphql/language/source"
 	"log"
+	"os"
 )
 
 func main() {
@@ -19,7 +20,7 @@ func main() {
 		Name: "",
 	})
 
-	a, err := parser.Parse(parser.ParseParams{
+	_, err := parser.Parse(parser.ParseParams{
 		Source: source,
 		Options: parser.ParseOptions{
 			NoSource:   true,
@@ -30,8 +31,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
+	fmt.Printf("asdjf;lajdf;laksdjf;laskdjf;lasdfja;lsdfj;laskdfj%s:%s\n", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT"))
 
-	fmt.Println(string(PrintJSON(a)))
+	//fmt.Println(string(PrintJSON(a)))
 }
 
 func PrintJSON(obj interface{}) []byte {

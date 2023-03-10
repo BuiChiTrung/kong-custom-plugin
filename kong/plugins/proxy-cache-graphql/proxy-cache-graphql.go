@@ -42,6 +42,7 @@ func (c Config) Access(kong *pdk.PDK) {
 	if err != nil {
 		kong.Response.SetHeader("X-Cache-Status", string(Miss))
 		if err == redis.Nil {
+			kong.Response.SetHeader("X-Cache-Key", cacheKey)
 			return
 		}
 		kong.Log.Err("error get redis key: %w", err)

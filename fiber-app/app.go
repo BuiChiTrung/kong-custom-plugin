@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/gofiber/fiber/v2"
+	"github.com/joho/godotenv"
 	"github.com/qinains/fastergoding"
 	"github.com/redis/go-redis/v9"
+	"log"
+	"os"
 )
 
 var rdb *redis.Client
@@ -94,22 +98,22 @@ func UpsertCacheKeyHandler(c *fiber.Ctx) error {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	fastergoding.Run() // hot reload
 	app := fiber.New()
 
 	rdb = redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
+		Addr: fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
 	})
 
-	//rdb.
-
-	// TODO: trung.bc - key => cache-key
 	app.Get("/proxy-cache/:key", GetCacheKeyHandler)
 	app.Delete("/proxy-cache/:key", DelCacheKeyHandler)
 	app.Delete("/proxy-cache", FlushCacheKeyHandler)
 	app.Post("/proxy-cache", UpsertCacheKeyHandler)
 
-	app.Listen(":3000")
+	app.Listen(":9080")
 }

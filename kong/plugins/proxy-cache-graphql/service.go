@@ -5,11 +5,12 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"github.com/graphql-go/graphql/language/ast"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/graphql-go/graphql/language/ast"
 	"github.com/graphql-go/graphql/language/parser"
 	"github.com/graphql-go/graphql/language/source"
 	"github.com/redis/go-redis/v9"
@@ -23,9 +24,8 @@ type Service struct {
 func NewService() *Service {
 	return &Service{
 		redis.NewClient(&redis.Options{
-			Addr:     "kong-redis:6379",
-			Password: "", // no password set
-			DB:       0,  // use default DB
+			Addr: fmt.Sprintf("%s:%s", "kong-redis", "6379"),
+			//Addr: fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
 		}),
 		context.Background(),
 	}
@@ -71,13 +71,13 @@ func (s *Service) GenerateCacheKey(requestBody string, requestHeader string, req
 	if err != nil {
 		return "", false, fmt.Errorf("err GenerateCacheKey marshal graphQLAst: %w", err)
 	}
-	//gKong.Log.Notice(string(graphQLAstBytes))
 
 	graphQlVariableStr := s.NormalizeGraphQLVariable(graphQLReq.Variables)
 
 	request := fmt.Sprintf("%s%s%s", requestHeader, string(graphQLAstBytes), graphQlVariableStr)
 	requestHashBytes := md5.Sum([]byte(request))
 	requestHash := fmt.Sprintf("%s/%x", requestPath, string(requestHashBytes[:]))
+	requestHash = strings.ReplaceAll(requestHash, "/", "-")
 
 	return requestHash, true, nil
 }
