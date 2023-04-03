@@ -7,23 +7,24 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var gKong *pdk.PDK
-
 type Config struct {
-	TTLSeconds  int
-	VaryHeaders []string
-	svc         *Service
+	TTLSeconds       int
+	VaryHeaders      []string
+	DisableNormalize bool
 }
 
+var gKong *pdk.PDK
+var gConf Config
+var gSvc Service
+
 func New() interface{} {
-	return &Config{
-		svc: NewService(),
-	}
+	gConf = Config{}
+	gSvc = NewService()
+
+	return &gConf
 }
 
 func (c Config) Access(kong *pdk.PDK) {
-	kong.Log.Notice("Requestzzzzz")
-
 	_ = kong.ServiceRequest.ClearHeader("Accept-Encoding")
 
 	gKong = kong
@@ -42,7 +43,7 @@ func (c Config) Access(kong *pdk.PDK) {
 		return
 	}
 
-	cacheVal, err := c.svc.GetCacheKey(cacheKey)
+	cacheVal, err := gSvc.GetCacheKey(cacheKey)
 	if err != nil {
 		_ = kong.Response.SetHeader("X-Cache-Status", string(Miss))
 		if err == redis.Nil {
@@ -76,7 +77,7 @@ func (c Config) GenerateCacheKey(kong *pdk.PDK) (cacheKey string, shouldCached b
 		return "", false, fmt.Errorf("err GenerateCacheKey get req path")
 	}
 
-	cacheKey, shouldCached, err = c.svc.GenerateCacheKey(string(requestBody), requestHeader, requestPath)
+	cacheKey, shouldCached, err = gSvc.GenerateCacheKey(string(requestBody), requestHeader, requestPath)
 	if err != nil {
 		return "", false, err
 	}
@@ -89,8 +90,6 @@ func (c Config) Response(kong *pdk.PDK) {
 }
 
 func (c Config) Log(kong *pdk.PDK) {
-	kong.Log.Notice("Responsezzzzz")
-
 	responseBody, err := kong.ServiceResponse.GetRawBody()
 	if err != nil {
 		_ = kong.Log.Err("error get service response: ", err)
@@ -108,7 +107,7 @@ func (c Config) Log(kong *pdk.PDK) {
 		return
 	}
 
-	if err := c.svc.InsertCacheKey(cacheKey, responseBody, int64(c.TTLSeconds)*int64(NanoSecond)); err != nil {
+	if err := gSvc.InsertCacheKey(cacheKey, responseBody, int64(c.TTLSeconds)*int64(NanoSecond)); err != nil {
 		_ = kong.Log.Err("error set redis key: ", err)
 	}
 }

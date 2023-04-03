@@ -9,7 +9,7 @@ import (
 
 type ServiceSuite struct {
 	suite.Suite
-	svc *Service
+	svc Service
 }
 
 func (suite *ServiceSuite) SetupSuite() {

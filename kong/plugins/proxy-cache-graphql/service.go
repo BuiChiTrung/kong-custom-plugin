@@ -21,8 +21,8 @@ type Service struct {
 	redisCtx context.Context
 }
 
-func NewService() *Service {
-	return &Service{
+func NewService() Service {
+	return Service{
 		redis.NewClient(&redis.Options{
 			Addr: fmt.Sprintf("%s:%s", "kong-redis", "6379"),
 			//Addr: fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
@@ -109,6 +109,10 @@ func (s *Service) GetAndNormalizeGraphQLAst(graphQLQuery string) (*ast.Document,
 	graphQLAST, err := s.GetGraphQLAst(graphQLQuery)
 	if err != nil {
 		return nil, err
+	}
+
+	if gConf.DisableNormalize {
+		return graphQLAST, err
 	}
 
 	s.NormalizeOperationName(graphQLAST)
