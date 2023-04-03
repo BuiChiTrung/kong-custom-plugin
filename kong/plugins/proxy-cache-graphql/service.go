@@ -62,6 +62,7 @@ func (s *Service) GenerateCacheKey(requestBody string, requestHeader string, req
 		return "", false, err
 	}
 
+	// TODO: trung.bc - TD should check before normalizing the ast
 	shouldCached = s.reqOperationIsQuery(graphQLAST)
 	if !shouldCached {
 		return "", shouldCached, err
@@ -98,6 +99,13 @@ func (s *Service) reqOperationIsQuery(graphQLAST *ast.Document) bool {
 }
 
 func (s *Service) GetAndNormalizeGraphQLAst(graphQLQuery string) (*ast.Document, error) {
+	defer func() {
+		message := recover()
+		if message != nil {
+			fmt.Println(message)
+		}
+	}()
+
 	graphQLAST, err := s.GetGraphQLAst(graphQLQuery)
 	if err != nil {
 		return nil, err

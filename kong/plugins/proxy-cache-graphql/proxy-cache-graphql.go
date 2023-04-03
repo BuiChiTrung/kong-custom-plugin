@@ -22,34 +22,39 @@ func New() interface{} {
 }
 
 func (c Config) Access(kong *pdk.PDK) {
+	kong.Log.Notice("Requestzzzzz")
+
+	_ = kong.ServiceRequest.ClearHeader("Accept-Encoding")
+
 	gKong = kong
 	cacheKey, shouldCached, err := c.GenerateCacheKey(kong)
 	if err != nil {
-		kong.Log.Err(err.Error())
+		_ = kong.Log.Err(err.Error())
 		return
 	}
 	if !shouldCached {
-		kong.Response.SetHeader("X-Cache-Status", string(Bypass))
+		_ = kong.Response.SetHeader("X-Cache-Status", string(Bypass))
 		return
 	}
 
 	if err := kong.Ctx.SetShared(CacheKey, cacheKey); err != nil {
-		kong.Log.Err("err set shared context: ", err.Error())
+		_ = kong.Log.Err("err set shared context: ", err.Error())
 		return
 	}
 
 	cacheVal, err := c.svc.GetCacheKey(cacheKey)
 	if err != nil {
-		kong.Response.SetHeader("X-Cache-Status", string(Miss))
+		_ = kong.Response.SetHeader("X-Cache-Status", string(Miss))
 		if err == redis.Nil {
-			kong.Response.SetHeader("X-Cache-Key", cacheKey)
+			_ = kong.Response.SetHeader("X-Cache-Key", cacheKey)
 			return
 		}
 		kong.Log.Err("error get redis key: %w", err)
 	} else {
-		kong.Response.SetHeader("Content-Type", "application/json")
-		kong.Response.SetHeader("X-Cache-Key", cacheKey)
-		kong.Response.SetHeader("X-Cache-Status", string(Hit))
+		_ = kong.Response.SetHeader("Content-Type", "application/json")
+		_ = kong.Response.SetHeader("X-Cache-Key", cacheKey)
+		_ = kong.Response.SetHeader("X-Cache-Status", string(Hit))
+		_ = kong.Response.SetHeader("access-control-allow-origin", "*")
 		kong.Response.Exit(200, cacheVal, nil)
 	}
 }
@@ -84,25 +89,27 @@ func (c Config) Response(kong *pdk.PDK) {
 }
 
 func (c Config) Log(kong *pdk.PDK) {
+	kong.Log.Notice("Responsezzzzz")
+
 	responseBody, err := kong.ServiceResponse.GetRawBody()
 	if err != nil {
-		kong.Log.Err("error get service response: ", err)
+		_ = kong.Log.Err("error get service response: ", err)
 	}
 
 	cacheKey, err := kong.Ctx.GetSharedString(CacheKey)
 	if err != nil {
-		kong.Log.Err("err get shared context: ", err.Error())
+		_ = kong.Log.Err("err get shared context: ", err.Error())
 	}
 
-	kong.Log.Notice("[Log]", cacheKey)
-	kong.Log.Notice("[Log]", responseBody)
+	_ = kong.Log.Notice("[Log]", cacheKey)
+	_ = kong.Log.Notice("[Log]", responseBody)
 
 	if responseBody == "" {
 		return
 	}
 
 	if err := c.svc.InsertCacheKey(cacheKey, responseBody, int64(c.TTLSeconds)*int64(NanoSecond)); err != nil {
-		kong.Log.Err("error set redis key: ", err)
+		_ = kong.Log.Err("error set redis key: ", err)
 	}
 }
 
