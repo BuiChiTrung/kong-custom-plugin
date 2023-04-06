@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -162,16 +163,20 @@ func (suite *ServiceSuite) TestGetAndNormalizeGraphQLAst() {
 			continue
 		}
 
-		expectedAst, err := suite.svc.GetAndNormalizeGraphQLAst(testCase.graphQLQuery)
+		expectedAst, err := suite.svc.GetGraphQLAst(testCase.graphQLQuery)
 		if err != nil {
 			suite.T().Error(err.Error())
 		}
+		suite.svc.NormalizeOperationName(expectedAst)
+		suite.svc.NormalizeGraphQLAST(reflect.ValueOf(expectedAst).Elem())
 
 		for _, similarGraphQLQuery := range testCase.similarGraphQLQueryList {
-			actualAst, err := suite.svc.GetAndNormalizeGraphQLAst(similarGraphQLQuery)
+			actualAst, err := suite.svc.GetGraphQLAst(similarGraphQLQuery)
 			if err != nil {
 				suite.T().Error(err.Error())
 			}
+			suite.svc.NormalizeOperationName(actualAst)
+			suite.svc.NormalizeGraphQLAST(reflect.ValueOf(actualAst).Elem())
 			//fmt.Println(getObjJSONString(expectedAst))
 			//fmt.Println(getObjJSONString(actualAst))
 			assert.Equal(suite.T(), getObjJSONString(expectedAst), getObjJSONString(actualAst))

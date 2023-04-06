@@ -17,22 +17,44 @@ import (
 )
 
 type Service struct {
-	rdb      *redis.Client
+	rdbWrite *redis.Client
+	rdbRead  *redis.Client
 	redisCtx context.Context
 }
 
-func NewService() Service {
+func NewService() (Service, error) {
+	redisCtx := context.Background()
+
+	rdbWrite := redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%s", "kong-redis", "6379"),
+		// TODO: trung.bc - TD can't use env var
+		//Addr: fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
+	})
+
+	_, err := rdbWrite.Ping(redisCtx).Result()
+	if err != nil {
+		return Service{}, err
+	}
+
+	rdbRead := redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%s", "kong-redis-slave", "6379"),
+	})
+
+	_, _ = rdbRead.Do(context.Background(), "REPLICAOF", "kong-redis", 6379).Result()
+
 	return Service{
-		redis.NewClient(&redis.Options{
-			Addr: fmt.Sprintf("%s:%s", "kong-redis", "6379"),
-			//Addr: fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
-		}),
-		context.Background(),
+		rdbWrite: rdbWrite,
+		rdbRead:  rdbRead,
+		redisCtx: redisCtx,
 	}
 }
 
 func (s *Service) GetCacheKey(cacheKey string) (string, error) {
-	val, err := s.rdb.Get(s.redisCtx, cacheKey).Result()
+	if gConf.TurnOffRedis {
+		return "redis is off", nil
+	}
+
+	val, err := s.rdbRead.Get(s.redisCtx, cacheKey).Result()
 	if err != nil {
 		return "", err
 	}
@@ -41,9 +63,13 @@ func (s *Service) GetCacheKey(cacheKey string) (string, error) {
 }
 
 func (s *Service) InsertCacheKey(cacheKey string, value string, expireNanoSec int64) error {
-	_, err := s.rdb.Get(s.redisCtx, cacheKey).Result()
+	if gConf.TurnOffRedis {
+		return nil
+	}
+
+	_, err := s.rdbRead.Get(s.redisCtx, cacheKey).Result()
 	if err == redis.Nil {
-		if err := s.rdb.Set(s.redisCtx, cacheKey, value, time.Duration(expireNanoSec)).Err(); err != nil {
+		if err := s.rdbWrite.Set(s.redisCtx, cacheKey, value, time.Duration(expireNanoSec)).Err(); err != nil {
 			return err
 		}
 	}
@@ -52,20 +78,30 @@ func (s *Service) InsertCacheKey(cacheKey string, value string, expireNanoSec in
 }
 
 func (s *Service) GenerateCacheKey(requestBody string, requestHeader string, requestPath string) (cacheKey string, shouldCached bool, err error) {
+	defer func() {
+		message := recover()
+		if message != nil {
+			fmt.Println(message)
+		}
+	}()
+
 	var graphQLReq GraphQLRequest
 	if err := json.Unmarshal([]byte(requestBody), &graphQLReq); err != nil {
 		return "", false, fmt.Errorf("err GenerateCacheKey unmarshal request body: %w", err)
 	}
 
-	graphQLAST, err := s.GetAndNormalizeGraphQLAst(graphQLReq.Query)
+	graphQLAST, err := s.GetGraphQLAst(graphQLReq.Query)
 	if err != nil {
 		return "", false, err
 	}
 
-	// TODO: trung.bc - TD should check before normalizing the ast
-	shouldCached = s.reqOperationIsQuery(graphQLAST)
-	if !shouldCached {
+	if shouldCached = s.reqOperationIsQuery(graphQLAST); !shouldCached {
 		return "", shouldCached, err
+	}
+
+	if !gConf.DisableNormalize {
+		s.NormalizeOperationName(graphQLAST)
+		s.NormalizeGraphQLAST(reflect.ValueOf(graphQLAST).Elem())
 	}
 
 	graphQLAstBytes, err := json.Marshal(graphQLAST)
@@ -96,29 +132,6 @@ func (s *Service) reqOperationIsQuery(graphQLAST *ast.Document) bool {
 	}
 
 	return true
-}
-
-func (s *Service) GetAndNormalizeGraphQLAst(graphQLQuery string) (*ast.Document, error) {
-	defer func() {
-		message := recover()
-		if message != nil {
-			fmt.Println(message)
-		}
-	}()
-
-	graphQLAST, err := s.GetGraphQLAst(graphQLQuery)
-	if err != nil {
-		return nil, err
-	}
-
-	if gConf.DisableNormalize {
-		return graphQLAST, err
-	}
-
-	s.NormalizeOperationName(graphQLAST)
-	s.NormalizeGraphQLAST(reflect.ValueOf(graphQLAST).Elem())
-
-	return graphQLAST, err
 }
 
 func (s *Service) GetGraphQLAst(graphQLQuery string) (*ast.Document, error) {

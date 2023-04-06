@@ -5,12 +5,16 @@ import (
 	"github.com/Kong/go-pdk"
 	"github.com/Kong/go-pdk/server"
 	"github.com/redis/go-redis/v9"
+	"net/http"
 )
 
 type Config struct {
-	TTLSeconds       int
+	TTLSeconds       uint
+	ErrTTLSeconds    uint
 	VaryHeaders      []string
 	DisableNormalize bool
+
+	TurnOffRedis bool
 }
 
 var gKong *pdk.PDK
@@ -52,11 +56,14 @@ func (c Config) Access(kong *pdk.PDK) {
 		}
 		kong.Log.Err("error get redis key: %w", err)
 	} else {
-		_ = kong.Response.SetHeader("Content-Type", "application/json")
-		_ = kong.Response.SetHeader("X-Cache-Key", cacheKey)
-		_ = kong.Response.SetHeader("X-Cache-Status", string(Hit))
-		_ = kong.Response.SetHeader("access-control-allow-origin", "*")
-		kong.Response.Exit(200, cacheVal, nil)
+		_ = kong.Ctx.SetShared(ResponseIsCached, true)
+
+		kong.Response.Exit(200, cacheVal, map[string][]string{
+			"Content-Type":                {"application/json"},
+			"X-Cache-Key":                 {cacheKey},
+			"X-Cache-Status":              {string(Hit)},
+			"access-control-allow-origin": {"*"},
+		})
 	}
 }
 
@@ -90,9 +97,15 @@ func (c Config) Response(kong *pdk.PDK) {
 }
 
 func (c Config) Log(kong *pdk.PDK) {
+	isCache, err := kong.Ctx.GetSharedAny(ResponseIsCached)
+	if v, ok := isCache.(bool); ok && v {
+		return
+	}
+
 	responseBody, err := kong.ServiceResponse.GetRawBody()
 	if err != nil {
 		_ = kong.Log.Err("error get service response: ", err)
+		return
 	}
 
 	cacheKey, err := kong.Ctx.GetSharedString(CacheKey)
@@ -103,12 +116,17 @@ func (c Config) Log(kong *pdk.PDK) {
 	_ = kong.Log.Notice("[Log]", cacheKey)
 	_ = kong.Log.Notice("[Log]", responseBody)
 
-	if responseBody == "" {
+	statusCode, _ := kong.ServiceResponse.GetStatus()
+	if statusCode >= http.StatusInternalServerError {
 		return
-	}
-
-	if err := gSvc.InsertCacheKey(cacheKey, responseBody, int64(c.TTLSeconds)*int64(NanoSecond)); err != nil {
-		_ = kong.Log.Err("error set redis key: ", err)
+	} else if statusCode >= http.StatusBadRequest && c.ErrTTLSeconds > 0 {
+		if err := gSvc.InsertCacheKey(cacheKey, responseBody, int64(c.ErrTTLSeconds)*int64(NanoSecond)); err != nil {
+			_ = kong.Log.Err("error set redis key: ", err)
+		}
+	} else {
+		if err := gSvc.InsertCacheKey(cacheKey, responseBody, int64(c.TTLSeconds)*int64(NanoSecond)); err != nil {
+			_ = kong.Log.Err("error set redis key: ", err)
+		}
 	}
 }
 

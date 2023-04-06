@@ -2,6 +2,7 @@ package main
 
 // CacheKey kong.Ctx shared key
 const CacheKey = "CacheKey"
+const ResponseIsCached = "ResponseIsCached"
 const NanoSecond = 1e9
 
 type CacheStatus string
