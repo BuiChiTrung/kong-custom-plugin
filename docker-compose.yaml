@@ -6,7 +6,7 @@ services:
       - ./db/redis:/data
     ports:
       - "6379:6379"
-  kong-redis-slave:
+  kong-redis-replicas:
     image: redis:latest
     ports:
       - "6380:6379"
@@ -40,8 +40,17 @@ services:
     depends_on:
       - kong-psql
 #      - kong-gateway-db-bootstrap
+#    command:
+#    - export "KONG_NGINX_MAIN_ENV=REDIS_HOST;env REDIS_PORT"
+#    - export REDIS_HOST=kong-redis
+#    - export REDIS_PORT=6379
     environment:
+      - KONG_REDIS_MASTER_HOST=${KONG_REDIS_MASTER_HOST}
+      - KONG_REDIS_MASTER_PORT=${KONG_REDIS_MASTER_PORT}
+      - KONG_REDIS_REPLICAS_HOST=${KONG_REDIS_REPLICAS_HOST}
+      - KONG_REDIS_REPLICAS_PORT=${KONG_REDIS_REPLICAS_PORT}
       - KONG_DATABASE=postgres
+      - KONG_NGINX_MAIN_ENV=${KONG_NGINX_MAIN_ENV:-KONG_REDIS_MASTER_HOST; env KONG_REDIS_MASTER_PORT; env KONG_REDIS_REPLICAS_HOST; env KONG_REDIS_REPLICAS_PORT}
       - KONG_PG_HOST=kong-psql
       - KONG_PG_USER=kong
       - KONG_PG_PASSWORD=kongpass
@@ -53,9 +62,8 @@ services:
       - KONG_ADMIN_GUI_URL=http://localhost:8002
       - KONG_PLUGINS=proxy-cache-graphql, hello-world
       - KONG_PLUGINSERVER_NAMES=proxy-cache-graphql
+      - KONG_PLUGINSERVER_PROXY_CACHE_GRAPHQL_START_CMD=/usr/local/bin/proxy-cache-graphql
       - KONG_PLUGINSERVER_PROXY_CACHE_GRAPHQL_QUERY_CMD=/usr/local/bin/proxy-cache-graphql -dump
-      - REDIS_HOST=kong-redis
-      - REDIS_PORT=6379
     ports:
       - "8000:8000"
       - "8443:8443"
@@ -71,3 +79,6 @@ services:
       - ./fiber-app:/fiber-app
     ports:
       - "9080:9080"
+    environment:
+      - KONG_REDIS_REPLICAS_HOST=${KONG_REDIS_REPLICAS_HOST}
+      - KONG_REDIS_REPLICAS_PORT=${KONG_REDIS_REPLICAS_PORT}

@@ -1,20 +1,23 @@
 package main
 
 import (
-	"reflect"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"reflect"
+	"testing"
 )
 
 type ServiceSuite struct {
 	suite.Suite
-	svc Service
+	svc *Service
+}
+
+func TestServiceSuite(t *testing.T) {
+	suite.Run(t, new(ServiceSuite))
 }
 
 func (suite *ServiceSuite) SetupSuite() {
-	suite.svc = NewService()
+	suite.svc = &Service{}
 }
 
 func (suite *ServiceSuite) TestGenerateCacheKey() {
@@ -209,8 +212,4 @@ func (suite *ServiceSuite) TestNormalizeGraphQLVariable() {
 			assert.Equal(suite.T(), expectedVariableStr, actualVariableStr)
 		}
 	}
-}
-
-func TestServiceSuite(t *testing.T) {
-	suite.Run(t, new(ServiceSuite))
 }

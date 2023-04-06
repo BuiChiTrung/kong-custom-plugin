@@ -19,11 +19,16 @@ type Config struct {
 
 var gKong *pdk.PDK
 var gConf Config
-var gSvc Service
+var gSvc *Service
 
 func New() interface{} {
 	gConf = Config{}
-	gSvc = NewService()
+
+	var err error
+	gSvc, err = NewService()
+	if err != nil {
+		panic(err)
+	}
 
 	return &gConf
 }

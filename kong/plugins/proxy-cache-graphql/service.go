@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -22,31 +23,34 @@ type Service struct {
 	redisCtx context.Context
 }
 
-func NewService() (Service, error) {
+func NewService() (*Service, error) {
 	redisCtx := context.Background()
 
 	rdbWrite := redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%s", "kong-redis", "6379"),
+		//Addr: fmt.Sprintf("%s:%s", "kong-redis", "6379"),
 		// TODO: trung.bc - TD can't use env var
-		//Addr: fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
+		Addr: fmt.Sprintf("%s:%s", os.Getenv("KONG_REDIS_MASTER_HOST"), os.Getenv("KONG_REDIS_MASTER_PORT")),
 	})
 
 	_, err := rdbWrite.Ping(redisCtx).Result()
 	if err != nil {
-		return Service{}, err
+		return nil, fmt.Errorf("error NewService connect to redis master: %v", err)
 	}
 
 	rdbRead := redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%s", "kong-redis-slave", "6379"),
+		Addr: fmt.Sprintf("%s:%s", os.Getenv("KONG_REDIS_REPLICAS_HOST"), os.Getenv("KONG_REDIS_REPLICAS_PORT")),
 	})
 
-	_, _ = rdbRead.Do(context.Background(), "REPLICAOF", "kong-redis", 6379).Result()
+	_, err = rdbRead.Do(context.Background(), "REPLICAOF", "kong-redis", 6379).Result()
+	if err != nil {
+		return nil, fmt.Errorf("error NewService REPLICAOF redis master: %v", err)
+	}
 
-	return Service{
+	return &Service{
 		rdbWrite: rdbWrite,
 		rdbRead:  rdbRead,
 		redisCtx: redisCtx,
-	}
+	}, nil
 }
 
 func (s *Service) GetCacheKey(cacheKey string) (string, error) {
