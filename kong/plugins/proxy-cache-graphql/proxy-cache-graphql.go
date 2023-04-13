@@ -6,12 +6,13 @@ import (
 	"github.com/Kong/go-pdk/server"
 	"github.com/redis/go-redis/v9"
 	"net/http"
+	"strconv"
 )
 
 type Config struct {
 	TTLSeconds       uint
 	ErrTTLSeconds    uint
-	VaryHeaders      []string
+	Headers          []string
 	DisableNormalize bool
 
 	TurnOffRedis bool
@@ -34,7 +35,11 @@ func New() interface{} {
 }
 
 func (c Config) Access(kong *pdk.PDK) {
+	// TODO: trung.bc - TD
 	_ = kong.ServiceRequest.ClearHeader("Accept-Encoding")
+
+	body, _ := kong.Request.GetRawBody()
+	kong.Log.Notice(string(body))
 
 	gKong = kong
 	cacheKey, shouldCached, err := c.GenerateCacheKey(kong)
@@ -79,7 +84,7 @@ func (c Config) GenerateCacheKey(kong *pdk.PDK) (cacheKey string, shouldCached b
 	}
 
 	var requestHeader string
-	for _, header := range c.VaryHeaders {
+	for _, header := range c.Headers {
 		headerContent, _ := kong.Request.GetHeader(header)
 		requestHeader += headerContent
 	}
@@ -118,8 +123,8 @@ func (c Config) Log(kong *pdk.PDK) {
 		_ = kong.Log.Err("err get shared context: ", err.Error())
 	}
 
-	_ = kong.Log.Notice("[Log]", cacheKey)
-	_ = kong.Log.Notice("[Log]", responseBody)
+	//_ = kong.Log.Notice("[Log]", cacheKey)
+	//_ = kong.Log.Notice("[Log]", responseBody)
 
 	statusCode, _ := kong.ServiceResponse.GetStatus()
 	if statusCode >= http.StatusInternalServerError {
@@ -129,7 +134,18 @@ func (c Config) Log(kong *pdk.PDK) {
 			_ = kong.Log.Err("error set redis key: ", err)
 		}
 	} else {
-		if err := gSvc.InsertCacheKey(cacheKey, responseBody, int64(c.TTLSeconds)*int64(NanoSecond)); err != nil {
+		var ttlSeconds uint
+
+		ttlHeaderStr, _ := kong.Request.GetHeader(TTLSeconds)
+		ttlHeader, err := strconv.Atoi(ttlHeaderStr)
+
+		if ttlHeaderNotProvideOrInvalid := err != nil; ttlHeaderNotProvideOrInvalid {
+			ttlSeconds = c.TTLSeconds
+		} else {
+			ttlSeconds = uint(ttlHeader)
+		}
+
+		if err := gSvc.InsertCacheKey(cacheKey, responseBody, int64(ttlSeconds)*int64(NanoSecond)); err != nil {
 			_ = kong.Log.Err("error set redis key: ", err)
 		}
 	}

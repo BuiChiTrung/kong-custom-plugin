@@ -7,6 +7,7 @@ import (
 	"github.com/qinains/fastergoding"
 	"github.com/redis/go-redis/v9"
 	"os"
+	"time"
 )
 
 var rdb *redis.Client
@@ -49,7 +50,7 @@ func DelCacheKeyHandler(c *fiber.Ctx) error {
 			response.Code = fiber.StatusInternalServerError
 			response.Message = "internal server err"
 		}
-		response.Code = fiber.StatusNoContent
+		response.Code = fiber.StatusOK
 		response.Message = "success"
 	}
 	return c.Status(response.Code).JSON(response)
@@ -64,7 +65,7 @@ func FlushCacheKeyHandler(c *fiber.Ctx) error {
 		response.Message = "internal server err"
 	}
 
-	response.Code = fiber.StatusNoContent
+	response.Code = fiber.StatusOK
 	response.Message = "success"
 
 	return c.Status(response.Code).JSON(response)
@@ -80,7 +81,7 @@ func UpsertCacheKeyHandler(c *fiber.Ctx) error {
 
 	_, err := rdb.Get(redisCtx, reqBody.CacheKey).Result()
 	if err == redis.Nil || err == nil {
-		if err := rdb.Set(redisCtx, reqBody.CacheKey, reqBody.Value, 0).Err(); err != nil {
+		if err := rdb.Set(redisCtx, reqBody.CacheKey, reqBody.Value, time.Duration(reqBody.TTLSeconds*uint(time.Second))).Err(); err != nil {
 			response.Code = fiber.StatusInternalServerError
 			response.Message = "internal server err"
 		} else {
@@ -100,7 +101,7 @@ func main() {
 	app := fiber.New()
 
 	rdb = redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%s", os.Getenv("KONG_REDIS_REPLICAS_HOST"), os.Getenv("KONG_REDIS_REPLICAS_PORT")),
+		Addr: fmt.Sprintf("%s:%s", os.Getenv("KONG_REDIS_MASTER_HOST"), os.Getenv("KONG_REDIS_MASTER_PORT")),
 	})
 
 	app.Get("/proxy-cache/:key", GetCacheKeyHandler)
@@ -108,5 +109,6 @@ func main() {
 	app.Delete("/proxy-cache", FlushCacheKeyHandler)
 	app.Post("/proxy-cache", UpsertCacheKeyHandler)
 
+	// TODO: trung.bc - remove
 	app.Listen(":9080")
 }

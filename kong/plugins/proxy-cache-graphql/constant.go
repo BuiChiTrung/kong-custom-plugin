@@ -4,6 +4,7 @@ package main
 const CacheKey = "CacheKey"
 const ResponseIsCached = "ResponseIsCached"
 const NanoSecond = 1e9
+const TTLSeconds = "TTL-Seconds"
 
 type CacheStatus string
 

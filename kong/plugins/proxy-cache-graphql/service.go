@@ -27,8 +27,6 @@ func NewService() (*Service, error) {
 	redisCtx := context.Background()
 
 	rdbWrite := redis.NewClient(&redis.Options{
-		//Addr: fmt.Sprintf("%s:%s", "kong-redis", "6379"),
-		// TODO: trung.bc - TD can't use env var
 		Addr: fmt.Sprintf("%s:%s", os.Getenv("KONG_REDIS_MASTER_HOST"), os.Getenv("KONG_REDIS_MASTER_PORT")),
 	})
 
@@ -37,11 +35,13 @@ func NewService() (*Service, error) {
 		return nil, fmt.Errorf("error NewService connect to redis master: %v", err)
 	}
 
+	// TODO: trung.bc - remove
+	//rdbRead := rdbWrite
 	rdbRead := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%s", os.Getenv("KONG_REDIS_REPLICAS_HOST"), os.Getenv("KONG_REDIS_REPLICAS_PORT")),
 	})
 
-	_, err = rdbRead.Do(context.Background(), "REPLICAOF", "kong-redis", 6379).Result()
+	_, err = rdbRead.Do(context.Background(), "REPLICAOF", os.Getenv("KONG_REDIS_MASTER_HOST"), os.Getenv("KONG_REDIS_MASTER_PORT")).Result()
 	if err != nil {
 		return nil, fmt.Errorf("error NewService REPLICAOF redis master: %v", err)
 	}
@@ -55,7 +55,8 @@ func NewService() (*Service, error) {
 
 func (s *Service) GetCacheKey(cacheKey string) (string, error) {
 	if gConf.TurnOffRedis {
-		return "redis is off", nil
+		return "REDIS OFF{\n    \"data\": {\n        \"repository\": {\n            \"autoMergeAllowed\": false,\n            \"allowUpdateBranch\": false,\n            \"id\": \"R_kgDOJBW6xg\",\n            \"isPrivate\": false,\n            \"createdAt\": \"2023-02-23T04:31:41Z\",\n            \"owner\": {\n                \"id\": \"MDQ6VXNlcjUyMzQ3Mjg1\",\n                \"login\": \"BuiChiTrung\",\n                \"avatarUrl\": \"https://avatars.githubusercontent.com/u/52347285?u=1ac0b64be799a1c41d56e3d4d6a322d61e9b3f4b&v=4\"\n            }\n        },\n        \"user\": {\n            \"avatarUrl\": \"https://avatars.githubusercontent.com/u/583231?u=a59fef2a493e2b67dd13754231daf220c82ba84d&v=4\",\n            \"bio\": \"\"\n        }\n    }\n}",
+			nil
 	}
 
 	val, err := s.rdbRead.Get(s.redisCtx, cacheKey).Result()

@@ -14,8 +14,9 @@ type DelCacheKeyResponse struct {
 }
 
 type UpsertCacheKeyRequest struct {
-	CacheKey string `json:"cacheKey"`
-	Value    string `json:"value"`
+	CacheKey   string `json:"cacheKey"`
+	Value      string `json:"value"`
+	TTLSeconds uint   `json:"ttlSeconds"`
 }
 
 type UpsertCacheKeyResponse struct {
