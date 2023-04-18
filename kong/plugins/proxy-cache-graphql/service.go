@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"sort"
 	"strings"
 	"time"
 
@@ -114,7 +113,10 @@ func (s *Service) GenerateCacheKey(requestBody string, requestHeader string, req
 		return "", false, fmt.Errorf("err GenerateCacheKey marshal graphQLAst: %w", err)
 	}
 
-	graphQlVariableStr := s.NormalizeGraphQLVariable(graphQLReq.Variables)
+	graphQlVariableStr, err := s.NormalizeGraphQLVariable(graphQLReq.Variables)
+	if err != nil {
+		return "", false, err
+	}
 
 	request := fmt.Sprintf("%s%s%s", requestHeader, string(graphQLAstBytes), graphQlVariableStr)
 	requestHashBytes := md5.Sum([]byte(request))
@@ -172,19 +174,13 @@ func (s *Service) NormalizeOperationName(graphQLAST *ast.Document) {
 	}
 }
 
-func (s *Service) NormalizeGraphQLVariable(variableMp map[string]interface{}) (variableStr string) {
-	keys := make([]string, 0, len(variableMp))
-
-	for key := range variableMp {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		variableStr += fmt.Sprintf("%s:%v,", key, variableMp[key])
+func (s *Service) NormalizeGraphQLVariable(variableMp map[string]interface{}) (string, error) {
+	variableBytes, err := json.Marshal(variableMp)
+	if err != nil {
+		return "", fmt.Errorf("err NormalizeGraphQLVariable marshal variable: %w", err)
 	}
 
-	return variableStr
+	return string(variableBytes), nil
 }
 
 func (s *Service) NormalizeGraphQLAST(nodeVal reflect.Value) {

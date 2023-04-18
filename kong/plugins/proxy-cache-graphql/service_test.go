@@ -205,10 +205,10 @@ func (suite *ServiceSuite) TestNormalizeGraphQLVariable() {
 	}
 
 	for i := 0; i < len(testcases); i++ {
-		expectedVariableStr := suite.svc.NormalizeGraphQLVariable(testcases[i].variableMp)
+		expectedVariableStr, _ := suite.svc.NormalizeGraphQLVariable(testcases[i].variableMp)
 
 		for _, similarVariableMp := range testcases[i].similarVariableMpList {
-			actualVariableStr := suite.svc.NormalizeGraphQLVariable(similarVariableMp)
+			actualVariableStr, _ := suite.svc.NormalizeGraphQLVariable(similarVariableMp)
 			assert.Equal(suite.T(), expectedVariableStr, actualVariableStr)
 		}
 	}

@@ -38,9 +38,6 @@ func (c Config) Access(kong *pdk.PDK) {
 	// TODO: trung.bc - TD
 	_ = kong.ServiceRequest.ClearHeader("Accept-Encoding")
 
-	body, _ := kong.Request.GetRawBody()
-	kong.Log.Notice(string(body))
-
 	gKong = kong
 	cacheKey, shouldCached, err := c.GenerateCacheKey(kong)
 	if err != nil {
@@ -66,7 +63,7 @@ func (c Config) Access(kong *pdk.PDK) {
 		}
 		kong.Log.Err("error get redis key: %w", err)
 	} else {
-		_ = kong.Ctx.SetShared(ResponseIsCached, true)
+		_ = kong.Ctx.SetShared(ResponseAlreadyCached, true)
 
 		kong.Response.Exit(200, cacheVal, map[string][]string{
 			"Content-Type":                {"application/json"},
@@ -107,7 +104,7 @@ func (c Config) Response(kong *pdk.PDK) {
 }
 
 func (c Config) Log(kong *pdk.PDK) {
-	isCache, err := kong.Ctx.GetSharedAny(ResponseIsCached)
+	isCache, err := kong.Ctx.GetSharedAny(ResponseAlreadyCached)
 	if v, ok := isCache.(bool); ok && v {
 		return
 	}
@@ -122,15 +119,22 @@ func (c Config) Log(kong *pdk.PDK) {
 	if err != nil {
 		_ = kong.Log.Err("err get shared context: ", err.Error())
 	}
+	if cacheKey == "" {
+		return
+	}
 
 	//_ = kong.Log.Notice("[Log]", cacheKey)
 	//_ = kong.Log.Notice("[Log]", responseBody)
 
+	c.InsertCacheKey(kong, cacheKey, responseBody)
+}
+
+func (c Config) InsertCacheKey(kong *pdk.PDK, cacheKey string, cacheValue string) {
 	statusCode, _ := kong.ServiceResponse.GetStatus()
 	if statusCode >= http.StatusInternalServerError {
 		return
 	} else if statusCode >= http.StatusBadRequest && c.ErrTTLSeconds > 0 {
-		if err := gSvc.InsertCacheKey(cacheKey, responseBody, int64(c.ErrTTLSeconds)*int64(NanoSecond)); err != nil {
+		if err := gSvc.InsertCacheKey(cacheKey, cacheValue, int64(c.ErrTTLSeconds)*int64(NanoSecond)); err != nil {
 			_ = kong.Log.Err("error set redis key: ", err)
 		}
 	} else {
@@ -141,11 +145,13 @@ func (c Config) Log(kong *pdk.PDK) {
 
 		if ttlHeaderNotProvideOrInvalid := err != nil; ttlHeaderNotProvideOrInvalid {
 			ttlSeconds = c.TTLSeconds
+		} else if ttlHeader < 0 {
+			return
 		} else {
 			ttlSeconds = uint(ttlHeader)
 		}
 
-		if err := gSvc.InsertCacheKey(cacheKey, responseBody, int64(ttlSeconds)*int64(NanoSecond)); err != nil {
+		if err := gSvc.InsertCacheKey(cacheKey, cacheValue, int64(ttlSeconds)*int64(NanoSecond)); err != nil {
 			_ = kong.Log.Err("error set redis key: ", err)
 		}
 	}
