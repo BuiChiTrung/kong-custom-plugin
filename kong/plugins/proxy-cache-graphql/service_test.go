@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"reflect"
@@ -65,6 +67,16 @@ func (suite *ServiceSuite) TestGenerateCacheKey() {
 			testDesc:     "Shouldn't cache mutation operation",
 			requestBody:  "{\"query\":\"mutation AddReactionToIssue {\\n  addReaction(input:{subjectId:\\\"I_kwDOABPHjc5fqsV6\\\",content:HOORAY}) {\\n    reaction {\\n      content\\n    }\\n    subject {\\n      id\\n    }\\n  }\\n}\",\"variables\":{}}",
 			shouldCached: false,
+		},
+		{
+			testID:      4,
+			testDesc:    "Nested variable",
+			requestBody: "{\"query\":\"query ($filter: CountryFilterInput) {\\n    countries (\\n        filter: $filter\\n    ) {\\n        __typename\\n        currency\\n        capital\\n        code\\n        continent {\\n            code\\n        }\\n    }\\n}\",\"variables\":{\"filter\":{\"code\":{\"nin\":\"AD\",\"regex\":\".*\"},\"continent\":{\"regex\":\"A.*\",\"eq\":\"AS\"}}}}",
+			similarRequestBodyList: []string{
+				"{\"query\":\"query ($filter: CountryFilterInput) {\\n    countries (\\n        filter: $filter\\n    ) {\\n        __typename\\n           continent {\\n            code\\n        }\\n        currency\\n        capital\\n        code\\n    }\\n}\",\"variables\":{\"filter\":{\"continent\":{\"eq\":\"AS\",\"regex\":\"A.*\"},\"code\":{\"regex\":\".*\",\"nin\":\"AD\"}}}}",
+				"{\"query\":\"query ($filter: CountryFilterInput) {\\n    countries (\\n        filter: $filter\\n    ) {\\n        __typename\\n           continent {\\n            code\\n        }\\n        currency\\n        capital\\n        code\\n    }\\n}\",\"variables\":{\"filter\":{\"continent\":{\"regex\":\"A.*\",\"eq\":\"AS\"},\"code\":{\"nin\":\"AD\",\"regex\":\".*\"}}}}",
+			},
+			shouldCached: true,
 		},
 	}
 
@@ -187,29 +199,35 @@ func (suite *ServiceSuite) TestGetAndNormalizeGraphQLAst() {
 	}
 }
 
-func (suite *ServiceSuite) TestNormalizeGraphQLVariable() {
-	type TestCase struct {
-		variableMp            map[string]interface{}
-		similarVariableMpList []map[string]interface{}
-	}
+// var requestBody = "{\"query\":\"query Repository($name: String!, $owner: String!, $followRenames: Boolean) {\\n  repository(name: $name, owner: $owner, followRenames: $followRenames) {\\n    allowUpdateBranch\\n    autoMergeAllowed\\n    id\\n    createdAt\\n    owner {\\n      avatarUrl\\n      id\\n      login\\n      url\\n    }\\n    isPrivate\\n  }\\n}\\n\",\"variables\":{\"name\":\"kong-custom-plugin\",\"owner\":\"BuiChiTrung\",\"followRenames\":true}}"
+var requestBody = "{\"query\":\"query RandomQuery($Query__continent__code: ID!) {  continent(code: $Query__continent__code) {    countries {      continent {        countries {                    currency          emojiU          name          phone          phone        }        code        name      }            capital      currency      currency      emojiU      native      phone      phone    }    code  }}\",\"variables\":{\"filter\":{\"continent\":{\"regex\":\"A.*\",\"eq\":\"AS\"},\"code\":{\"regex\":\".*\",\"nin\":\"AD\"}}}}"
 
-	testcases := []TestCase{
-		{
-			variableMp: map[string]interface{}{"name": "kong-custom-plugin", "owner": "BuiChiTrung", "followRenames": true},
-			similarVariableMpList: []map[string]interface{}{
-				{"name": "kong-custom-plugin", "followRenames": true, "owner": "BuiChiTrung"},
-				{"owner": "BuiChiTrung", "name": "kong-custom-plugin", "followRenames": true},
-				{"owner": "BuiChiTrung", "followRenames": true, "name": "kong-custom-plugin"},
-			},
-		},
-	}
+func BenchmarkJSONMarshal(b *testing.B) {
+	graphQLReq := &GraphQLRequest{}
+	_ = json.Unmarshal([]byte(requestBody), graphQLReq)
 
-	for i := 0; i < len(testcases); i++ {
-		expectedVariableStr, _ := suite.svc.NormalizeGraphQLVariable(testcases[i].variableMp)
+	var marshalBytes []byte
+	var marshalStr string
 
-		for _, similarVariableMp := range testcases[i].similarVariableMpList {
-			actualVariableStr, _ := suite.svc.NormalizeGraphQLVariable(similarVariableMp)
-			assert.Equal(suite.T(), expectedVariableStr, actualVariableStr)
-		}
+	for i := 0; i < b.N; i++ {
+		marshalBytes, _ = json.Marshal(graphQLReq)
+		marshalStr = string(marshalBytes)
 	}
+	_ = marshalStr
+
+	//fmt.Println(marshalStr)
+}
+
+func BenchmarkSprintf(b *testing.B) {
+	graphQLReq := &GraphQLRequest{}
+	_ = json.Unmarshal([]byte(requestBody), graphQLReq)
+
+	var sprintfStr string
+
+	for i := 0; i < b.N; i++ {
+		sprintfStr = fmt.Sprintf("%v", graphQLReq)
+	}
+	_ = sprintfStr
+
+	fmt.Println(sprintfStr)
 }

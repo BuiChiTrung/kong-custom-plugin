@@ -34,8 +34,6 @@ func NewService() (*Service, error) {
 		return nil, fmt.Errorf("error NewService connect to redis master: %v", err)
 	}
 
-	// TODO: trung.bc - remove
-	//rdbRead := rdbWrite
 	rdbRead := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%s", os.Getenv("KONG_REDIS_REPLICAS_HOST"), os.Getenv("KONG_REDIS_REPLICAS_PORT")),
 	})
@@ -113,12 +111,9 @@ func (s *Service) GenerateCacheKey(requestBody string, requestHeader string, req
 		return "", false, fmt.Errorf("err GenerateCacheKey marshal graphQLAst: %w", err)
 	}
 
-	graphQlVariableStr, err := s.NormalizeGraphQLVariable(graphQLReq.Variables)
-	if err != nil {
-		return "", false, err
-	}
+	fmt.Printf("%v", graphQLAST.Definitions)
 
-	request := fmt.Sprintf("%s%s%s", requestHeader, string(graphQLAstBytes), graphQlVariableStr)
+	request := fmt.Sprintf("%s%v%v", requestHeader, string(graphQLAstBytes), graphQLReq.Variables)
 	requestHashBytes := md5.Sum([]byte(request))
 	requestHash := fmt.Sprintf("%s/%x", requestPath, string(requestHashBytes[:]))
 	requestHash = strings.ReplaceAll(requestHash, "/", "-")
@@ -172,15 +167,6 @@ func (s *Service) NormalizeOperationName(graphQLAST *ast.Document) {
 			operationDef.VariableDefinitions = make([]*ast.VariableDefinition, 0)
 		}
 	}
-}
-
-func (s *Service) NormalizeGraphQLVariable(variableMp map[string]interface{}) (string, error) {
-	variableBytes, err := json.Marshal(variableMp)
-	if err != nil {
-		return "", fmt.Errorf("err NormalizeGraphQLVariable marshal variable: %w", err)
-	}
-
-	return string(variableBytes), nil
 }
 
 func (s *Service) NormalizeGraphQLAST(nodeVal reflect.Value) {

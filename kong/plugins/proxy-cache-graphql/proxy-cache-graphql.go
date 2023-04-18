@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/BuiChiTrung/kong-custom-plugin/kong/logger"
 	"github.com/Kong/go-pdk"
 	"github.com/Kong/go-pdk/server"
 	"github.com/redis/go-redis/v9"
@@ -30,6 +31,8 @@ func New() interface{} {
 	if err != nil {
 		panic(err)
 	}
+
+	logger.InitializeDefaultZapLogger()
 
 	return &gConf
 }
@@ -123,6 +126,8 @@ func (c Config) Log(kong *pdk.PDK) {
 		return
 	}
 
+	logger.Infof("[ProxyCache] Cache-key: %s", cacheKey)
+
 	//_ = kong.Log.Notice("[Log]", cacheKey)
 	//_ = kong.Log.Notice("[Log]", responseBody)
 
@@ -161,4 +166,6 @@ func main() {
 	Version := "1.1"
 	Priority := 1
 	_ = server.StartServer(New, Version, Priority)
+
+	//logger.InitializeDefaultZapLogger()
 }
