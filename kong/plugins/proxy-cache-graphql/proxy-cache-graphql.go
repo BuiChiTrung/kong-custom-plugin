@@ -17,7 +17,8 @@ type Config struct {
 	Headers          []string
 	DisableNormalize bool
 
-	TurnOffRedis bool
+	LogMaxFileSizeMB uint
+	LogMaxAgeDays    uint
 }
 
 var gConf Config
@@ -25,13 +26,13 @@ var gSvc *Service
 
 func New() interface{} {
 	logger.InitializeDefaultZapLogger()
-	//defer func() {
-	//	message := recover()
-	//	if message != nil {
-	//		logger.Errorf("New: %v %s", message, string(debug.Stack()))
-	//	}
-	//}()
-	//logger.Infof("Plugin restarting: %v", gConf)
+	defer func() {
+		message := recover()
+		if message != nil {
+			logger.Errorf("New: %v %s", message, string(debug.Stack()))
+		}
+	}()
+	logger.Infof("Plugin restarting: %v", gConf)
 
 	gConf = Config{}
 	gSvc = NewService()

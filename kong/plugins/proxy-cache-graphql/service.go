@@ -50,10 +50,6 @@ func NewService() *Service {
 }
 
 func (s *Service) GetCacheKey(cacheKey string) (string, error) {
-	if gConf.TurnOffRedis {
-		return "", nil
-	}
-
 	val, err := s.rdbRead.Get(s.rdbCtx, cacheKey).Result()
 
 	if err != nil {
@@ -64,10 +60,6 @@ func (s *Service) GetCacheKey(cacheKey string) (string, error) {
 }
 
 func (s *Service) InsertCacheKey(cacheKey string, value string, expireNanoSec int64) error {
-	if gConf.TurnOffRedis {
-		return nil
-	}
-
 	_, err := s.rdbWrite.Get(s.rdbCtx, cacheKey).Result()
 	if err == redis.Nil {
 		if err := s.rdbWrite.Set(s.rdbCtx, cacheKey, value, time.Duration(expireNanoSec)).Err(); err != nil {
