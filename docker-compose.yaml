@@ -41,6 +41,7 @@ services:
     volumes:
       - ./bin/proxy-cache-graphql:/usr/local/bin/proxy-cache-graphql
       - ./kong/plugins/hello-world:/usr/local/share/lua/5.1/kong/plugins/hello-world
+      - ./logs:/home/kong/logs
     depends_on:
       - kong-psql
 #      - kong-gateway-db-bootstrap

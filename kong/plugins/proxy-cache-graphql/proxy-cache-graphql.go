@@ -25,6 +25,13 @@ var gSvc *Service
 
 func New() interface{} {
 	logger.InitializeDefaultZapLogger()
+	//defer func() {
+	//	message := recover()
+	//	if message != nil {
+	//		logger.Errorf("New: %v %s", message, string(debug.Stack()))
+	//	}
+	//}()
+	//logger.Infof("Plugin restarting: %v", gConf)
 
 	gConf = Config{}
 	gSvc = NewService()
@@ -54,7 +61,7 @@ func (c Config) Access(kong *pdk.PDK) {
 		return
 	}
 
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	//logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
 
 	if err := kong.Ctx.SetShared(CacheKey, cacheKey); err != nil {
 		logger.Errorf("err set shared context: %v", err)
@@ -62,7 +69,7 @@ func (c Config) Access(kong *pdk.PDK) {
 	}
 
 	cacheVal, err := gSvc.GetCacheKey(cacheKey)
-	logger.Debugf("cacheval: %s, err: %v", cacheVal, err)
+	//logger.Debugf("cacheval: %s, err: %v", cacheVal, err)
 	if err != nil {
 		_ = kong.Response.SetHeader(HeaderXCacheStatus, string(Miss))
 		if err == redis.Nil {
