@@ -42,15 +42,13 @@ type Logger struct {
 
 func InitializeDefaultZapLogger() {
 	DefaultZapLogger = newZapLogger(Config{
-		ConsoleEnabled: true,
-		ConsoleLevel:   "DEBUG",
-		ConsoleJson:    false,
-		FileEnabled:    true,
-		FileJson:       true,
-		Directory:      "/home/kong",
-		Filename:       "kong-plugin.log",
-		MaxSize:        1,
-		MaxAge:         1,
+		FileEnabled: true,
+		FileJson:    true,
+		FileLevel:   DefaultLogLvl,
+		Directory:   DefaultLogDir,
+		Filename:    DefaultLogFileName,
+		MaxSize:     DefaultLogFileSizeMB,
+		MaxAge:      DefaultLogFileAgeDays,
 	})
 }
 

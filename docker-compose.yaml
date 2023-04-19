@@ -40,10 +40,6 @@ services:
     depends_on:
       - kong-psql
 #      - kong-gateway-db-bootstrap
-#    command:
-#    - export "KONG_NGINX_MAIN_ENV=REDIS_HOST;env REDIS_PORT"
-#    - export REDIS_HOST=kong-redis
-#    - export REDIS_PORT=6379
     environment:
       - KONG_REDIS_MASTER_HOST=${KONG_REDIS_MASTER_HOST}
       - KONG_REDIS_MASTER_PORT=${KONG_REDIS_MASTER_PORT}

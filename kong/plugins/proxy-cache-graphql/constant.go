@@ -21,3 +21,18 @@ const (
 	Mutation     OperationType = "mutation"
 	Subscription OperationType = "subscription"
 )
+
+const (
+	HeaderXCacheStatus             = "X-Cache-Status"
+	HeaderAcceptEncoding           = "Accept-Encoding"
+	HeaderContentType              = "Content-Type"
+	HeaderXCacheKey                = "X-Cache-Key"
+	HeaderAccessControlAllowOrigin = "access-control-allow-origin"
+)
+
+const (
+	EnvRedisMasterHost   = "KONG_REDIS_MASTER_HOST"
+	EnvRedisMasterPort   = "KONG_REDIS_MASTER_PORT"
+	EnvRedisReplicasHost = "KONG_REDIS_REPLICAS_HOST"
+	EnvRedisReplicasPort = "KONG_REDIS_REPLICAS_PORT"
+)

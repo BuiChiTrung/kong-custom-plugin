@@ -39,40 +39,43 @@ func New() interface{} {
 
 func (c Config) Access(kong *pdk.PDK) {
 	// TODO: trung.bc - TD
-	_ = kong.ServiceRequest.ClearHeader("Accept-Encoding")
+	_ = kong.ServiceRequest.ClearHeader(HeaderAcceptEncoding)
 
 	gKong = kong
 	cacheKey, shouldCached, err := c.GenerateCacheKey(kong)
 	if err != nil {
-		_ = kong.Log.Err(err.Error())
+		logger.Error(err.Error())
 		return
 	}
 	if !shouldCached {
-		_ = kong.Response.SetHeader("X-Cache-Status", string(Bypass))
+		_ = kong.Response.SetHeader(HeaderXCacheStatus, string(Bypass))
 		return
 	}
 
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+
 	if err := kong.Ctx.SetShared(CacheKey, cacheKey); err != nil {
-		_ = kong.Log.Err("err set shared context: ", err.Error())
+		logger.Errorf("err set shared context: %v", err)
 		return
 	}
 
 	cacheVal, err := gSvc.GetCacheKey(cacheKey)
+	logger.Debugf("cacheval: %s, err: %v", cacheVal, err)
 	if err != nil {
-		_ = kong.Response.SetHeader("X-Cache-Status", string(Miss))
+		_ = kong.Response.SetHeader(HeaderXCacheStatus, string(Miss))
 		if err == redis.Nil {
-			_ = kong.Response.SetHeader("X-Cache-Key", cacheKey)
+			_ = kong.Response.SetHeader(HeaderXCacheKey, cacheKey)
 			return
 		}
-		kong.Log.Err("error get redis key: %w", err)
+		logger.Errorf("error get redis key: %v", err)
 	} else {
 		_ = kong.Ctx.SetShared(ResponseAlreadyCached, true)
 
 		kong.Response.Exit(200, cacheVal, map[string][]string{
-			"Content-Type":                {"application/json"},
-			"X-Cache-Key":                 {cacheKey},
-			"X-Cache-Status":              {string(Hit)},
-			"access-control-allow-origin": {"*"},
+			HeaderContentType:              {"application/json"},
+			HeaderXCacheKey:                {cacheKey},
+			HeaderXCacheStatus:             {string(Hit)},
+			HeaderAccessControlAllowOrigin: {"*"},
 		})
 	}
 }
@@ -114,51 +117,51 @@ func (c Config) Log(kong *pdk.PDK) {
 
 	responseBody, err := kong.ServiceResponse.GetRawBody()
 	if err != nil {
-		_ = kong.Log.Err("error get service response: ", err)
+		logger.Errorf("error get service response: %v", err)
 		return
 	}
 
 	cacheKey, err := kong.Ctx.GetSharedString(CacheKey)
 	if err != nil {
-		_ = kong.Log.Err("err get shared context: ", err.Error())
+		logger.Errorf("err get shared context: %v", err.Error())
 	}
 	if cacheKey == "" {
 		return
 	}
 
-	logger.Infof("[ProxyCache] Cache-key: %s", cacheKey)
-
-	//_ = kong.Log.Notice("[Log]", cacheKey)
-	//_ = kong.Log.Notice("[Log]", responseBody)
-
 	c.InsertCacheKey(kong, cacheKey, responseBody)
 }
 
 func (c Config) InsertCacheKey(kong *pdk.PDK, cacheKey string, cacheValue string) {
+	logger.Infof("Insert Cache-key: %s", cacheKey)
+
 	statusCode, _ := kong.ServiceResponse.GetStatus()
 	if statusCode >= http.StatusInternalServerError {
 		return
-	} else if statusCode >= http.StatusBadRequest && c.ErrTTLSeconds > 0 {
+	}
+
+	if statusCode >= http.StatusBadRequest && c.ErrTTLSeconds > 0 {
 		if err := gSvc.InsertCacheKey(cacheKey, cacheValue, int64(c.ErrTTLSeconds)*int64(NanoSecond)); err != nil {
-			_ = kong.Log.Err("error set redis key: ", err)
+			logger.Errorf("err set redis key: %v", err)
 		}
+		return
+	}
+
+	var ttlSeconds uint
+
+	ttlHeaderStr, _ := kong.Request.GetHeader(TTLSeconds)
+	ttlHeader, err := strconv.Atoi(ttlHeaderStr)
+
+	if ttlHeaderNotProvideOrInvalid := err != nil; ttlHeaderNotProvideOrInvalid {
+		ttlSeconds = c.TTLSeconds
+	} else if clientDonWantToCache := ttlHeader < 0; clientDonWantToCache {
+		return
 	} else {
-		var ttlSeconds uint
+		ttlSeconds = uint(ttlHeader)
+	}
 
-		ttlHeaderStr, _ := kong.Request.GetHeader(TTLSeconds)
-		ttlHeader, err := strconv.Atoi(ttlHeaderStr)
-
-		if ttlHeaderNotProvideOrInvalid := err != nil; ttlHeaderNotProvideOrInvalid {
-			ttlSeconds = c.TTLSeconds
-		} else if ttlHeader < 0 {
-			return
-		} else {
-			ttlSeconds = uint(ttlHeader)
-		}
-
-		if err := gSvc.InsertCacheKey(cacheKey, cacheValue, int64(ttlSeconds)*int64(NanoSecond)); err != nil {
-			_ = kong.Log.Err("error set redis key: ", err)
-		}
+	if err := gSvc.InsertCacheKey(cacheKey, cacheValue, int64(ttlSeconds)*int64(NanoSecond)); err != nil {
+		logger.Errorf("error set redis key: %v", err)
 	}
 }
 
@@ -166,6 +169,4 @@ func main() {
 	Version := "1.1"
 	Priority := 1
 	_ = server.StartServer(New, Version, Priority)
-
-	//logger.InitializeDefaultZapLogger()
 }

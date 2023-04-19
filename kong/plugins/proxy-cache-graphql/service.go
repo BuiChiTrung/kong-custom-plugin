@@ -26,7 +26,7 @@ func NewService() (*Service, error) {
 	redisCtx := context.Background()
 
 	rdbWrite := redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%s", os.Getenv("KONG_REDIS_MASTER_HOST"), os.Getenv("KONG_REDIS_MASTER_PORT")),
+		Addr: fmt.Sprintf("%s:%s", os.Getenv(EnvRedisMasterHost), os.Getenv(EnvRedisMasterPort)),
 	})
 
 	_, err := rdbWrite.Ping(redisCtx).Result()
@@ -35,10 +35,10 @@ func NewService() (*Service, error) {
 	}
 
 	rdbRead := redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%s", os.Getenv("KONG_REDIS_REPLICAS_HOST"), os.Getenv("KONG_REDIS_REPLICAS_PORT")),
+		Addr: fmt.Sprintf("%s:%s", os.Getenv(EnvRedisReplicasHost), os.Getenv(EnvRedisReplicasPort)),
 	})
 
-	_, err = rdbRead.Do(context.Background(), "REPLICAOF", os.Getenv("KONG_REDIS_MASTER_HOST"), os.Getenv("KONG_REDIS_MASTER_PORT")).Result()
+	_, err = rdbRead.Do(context.Background(), "REPLICAOF", os.Getenv(EnvRedisMasterHost), os.Getenv(EnvRedisMasterPort)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("error NewService REPLICAOF redis master: %v", err)
 	}
@@ -52,8 +52,7 @@ func NewService() (*Service, error) {
 
 func (s *Service) GetCacheKey(cacheKey string) (string, error) {
 	if gConf.TurnOffRedis {
-		return "REDIS OFF{\n    \"data\": {\n        \"repository\": {\n            \"autoMergeAllowed\": false,\n            \"allowUpdateBranch\": false,\n            \"id\": \"R_kgDOJBW6xg\",\n            \"isPrivate\": false,\n            \"createdAt\": \"2023-02-23T04:31:41Z\",\n            \"owner\": {\n                \"id\": \"MDQ6VXNlcjUyMzQ3Mjg1\",\n                \"login\": \"BuiChiTrung\",\n                \"avatarUrl\": \"https://avatars.githubusercontent.com/u/52347285?u=1ac0b64be799a1c41d56e3d4d6a322d61e9b3f4b&v=4\"\n            }\n        },\n        \"user\": {\n            \"avatarUrl\": \"https://avatars.githubusercontent.com/u/583231?u=a59fef2a493e2b67dd13754231daf220c82ba84d&v=4\",\n            \"bio\": \"\"\n        }\n    }\n}",
-			nil
+		return "", nil
 	}
 
 	val, err := s.rdbRead.Get(s.redisCtx, cacheKey).Result()
@@ -69,11 +68,12 @@ func (s *Service) InsertCacheKey(cacheKey string, value string, expireNanoSec in
 		return nil
 	}
 
-	_, err := s.rdbRead.Get(s.redisCtx, cacheKey).Result()
+	_, err := s.rdbWrite.Get(s.redisCtx, cacheKey).Result()
 	if err == redis.Nil {
 		if err := s.rdbWrite.Set(s.redisCtx, cacheKey, value, time.Duration(expireNanoSec)).Err(); err != nil {
-			return err
+			return fmt.Errorf("err InsertCacheKey: %v", err)
 		}
+		return nil
 	}
 
 	return err

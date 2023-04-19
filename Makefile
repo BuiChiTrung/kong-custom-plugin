@@ -8,7 +8,7 @@ bootstrap:
 	docker compose up && docker compose down
 run fiber:
 	cd fiber-app && go run .
-kong:
+kong-gateway:
 	docker exec -it -u root kong-custom-plugin-kong-gateway-1 /bin/bash
 redis:
 	docker exec -it -u root kong-custom-plugin-kong-redis-1 /bin/bash
