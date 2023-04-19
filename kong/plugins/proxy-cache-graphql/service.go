@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"github.com/BuiChiTrung/kong-custom-plugin/kong/logger"
 	"os"
 	"reflect"
 	"strings"
@@ -19,35 +20,33 @@ import (
 type Service struct {
 	rdbWrite *redis.Client
 	rdbRead  *redis.Client
-	redisCtx context.Context
+	rdbCtx   context.Context
 }
 
-func NewService() (*Service, error) {
-	redisCtx := context.Background()
+func NewService() *Service {
+	rdbCtx := context.Background()
 
 	rdbWrite := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%s", os.Getenv(EnvRedisMasterHost), os.Getenv(EnvRedisMasterPort)),
 	})
-
-	_, err := rdbWrite.Ping(redisCtx).Result()
+	_, err := rdbWrite.Ping(rdbCtx).Result()
 	if err != nil {
-		return nil, fmt.Errorf("error NewService connect to redis master: %v", err)
+		logger.Errorf("err Connecting to rdbWrite: %v", err)
 	}
 
 	rdbRead := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%s", os.Getenv(EnvRedisReplicasHost), os.Getenv(EnvRedisReplicasPort)),
 	})
-
-	_, err = rdbRead.Do(context.Background(), "REPLICAOF", os.Getenv(EnvRedisMasterHost), os.Getenv(EnvRedisMasterPort)).Result()
+	_, err = rdbRead.Ping(rdbCtx).Result()
 	if err != nil {
-		return nil, fmt.Errorf("error NewService REPLICAOF redis master: %v", err)
+		logger.Errorf("err Connecting to rdbRead: %v", err)
 	}
 
 	return &Service{
 		rdbWrite: rdbWrite,
 		rdbRead:  rdbRead,
-		redisCtx: redisCtx,
-	}, nil
+		rdbCtx:   rdbCtx,
+	}
 }
 
 func (s *Service) GetCacheKey(cacheKey string) (string, error) {
@@ -55,7 +54,8 @@ func (s *Service) GetCacheKey(cacheKey string) (string, error) {
 		return "", nil
 	}
 
-	val, err := s.rdbRead.Get(s.redisCtx, cacheKey).Result()
+	val, err := s.rdbRead.Get(s.rdbCtx, cacheKey).Result()
+
 	if err != nil {
 		return "", err
 	}
@@ -68,9 +68,9 @@ func (s *Service) InsertCacheKey(cacheKey string, value string, expireNanoSec in
 		return nil
 	}
 
-	_, err := s.rdbWrite.Get(s.redisCtx, cacheKey).Result()
+	_, err := s.rdbWrite.Get(s.rdbCtx, cacheKey).Result()
 	if err == redis.Nil {
-		if err := s.rdbWrite.Set(s.redisCtx, cacheKey, value, time.Duration(expireNanoSec)).Err(); err != nil {
+		if err := s.rdbWrite.Set(s.rdbCtx, cacheKey, value, time.Duration(expireNanoSec)).Err(); err != nil {
 			return fmt.Errorf("err InsertCacheKey: %v", err)
 		}
 		return nil

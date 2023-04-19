@@ -8,8 +8,12 @@ services:
       - "6379:6379"
   kong-redis-replicas:
     image: redis:latest
+    command: "redis-server --replicaof kong-redis 6379"
     ports:
       - "6380:6379"
+    restart: on-failure
+    depends_on:
+      - kong-redis
   kong-psql:
     image: postgres:9.6
     volumes:

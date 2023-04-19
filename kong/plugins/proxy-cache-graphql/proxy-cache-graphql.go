@@ -7,6 +7,7 @@ import (
 	"github.com/Kong/go-pdk/server"
 	"github.com/redis/go-redis/v9"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 )
 
@@ -19,29 +20,30 @@ type Config struct {
 	TurnOffRedis bool
 }
 
-var gKong *pdk.PDK
 var gConf Config
 var gSvc *Service
 
 func New() interface{} {
-	gConf = Config{}
-
-	var err error
-	gSvc, err = NewService()
-	if err != nil {
-		panic(err)
-	}
-
 	logger.InitializeDefaultZapLogger()
+
+	gConf = Config{}
+	gSvc = NewService()
 
 	return &gConf
 }
 
 func (c Config) Access(kong *pdk.PDK) {
+	// TODO: trung.bc - remove defer in access, log
+	defer func() {
+		message := recover()
+		if message != nil {
+			logger.Errorf("Access: %v %s", message, string(debug.Stack()))
+		}
+	}()
+
 	// TODO: trung.bc - TD
 	_ = kong.ServiceRequest.ClearHeader(HeaderAcceptEncoding)
 
-	gKong = kong
 	cacheKey, shouldCached, err := c.GenerateCacheKey(kong)
 	if err != nil {
 		logger.Error(err.Error())
@@ -110,6 +112,13 @@ func (c Config) Response(kong *pdk.PDK) {
 }
 
 func (c Config) Log(kong *pdk.PDK) {
+	defer func() {
+		message := recover()
+		if message != nil {
+			logger.Errorf("Log: %v %s", message, string(debug.Stack()))
+		}
+	}()
+
 	isCache, err := kong.Ctx.GetSharedAny(ResponseAlreadyCached)
 	if v, ok := isCache.(bool); ok && v {
 		return

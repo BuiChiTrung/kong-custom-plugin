@@ -109,6 +109,5 @@ func main() {
 	app.Delete("/proxy-cache", FlushCacheKeyHandler)
 	app.Post("/proxy-cache", UpsertCacheKeyHandler)
 
-	// TODO: trung.bc - remove
 	app.Listen(":9080")
 }

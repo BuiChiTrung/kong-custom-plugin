@@ -10,5 +10,15 @@ run fiber:
 	cd fiber-app && go run .
 kong-gateway:
 	docker exec -it -u root kong-custom-plugin-kong-gateway-1 /bin/bash
-redis:
+redis-master:
 	docker exec -it -u root kong-custom-plugin-kong-redis-1 /bin/bash
+redis-replicas:
+	docker exec -it -u root kong-custom-plugin-kong-redis-replicas-1 /bin/bash
+stop-redis-master:
+	docker compose stop kong-redis
+stop-redis-replicas:
+	docker compose stop kong-redis-replicas
+start-redis-master:
+	docker compose start kong-redis
+start-redis-replicas:
+	docker compose start kong-redis-replicas
