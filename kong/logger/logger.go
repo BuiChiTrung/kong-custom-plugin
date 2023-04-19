@@ -40,8 +40,8 @@ type Logger struct {
 	*zap.SugaredLogger
 }
 
-func InitializeDefaultZapLogger() {
-	DefaultZapLogger = newZapLogger(Config{
+func InitializeDefaultZapLogger(MaxSize int, MaxAge int) {
+	cfg := Config{
 		FileEnabled: true,
 		FileJson:    true,
 		FileLevel:   DefaultLogLvl,
@@ -49,7 +49,17 @@ func InitializeDefaultZapLogger() {
 		Filename:    DefaultLogFileName,
 		MaxSize:     DefaultLogFileSizeMB,
 		MaxAge:      DefaultLogFileAgeDays,
-	})
+	}
+
+	if MaxSize != 0 {
+		cfg.MaxSize = MaxSize
+	}
+
+	if MaxAge != 0 {
+		cfg.MaxAge = MaxAge
+	}
+
+	DefaultZapLogger = newZapLogger(cfg)
 }
 
 // Debugt Use zap.String(key, value), zap.Int(key, value) to log fields. These fields

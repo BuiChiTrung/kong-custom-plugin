@@ -6,11 +6,14 @@ import (
 	"github.com/Kong/go-pdk"
 	"github.com/Kong/go-pdk/server"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 	"net/http"
 	"runtime/debug"
 	"strconv"
 )
 
+// TODO: trung.bc - move to model
 type Config struct {
 	TTLSeconds       uint
 	ErrTTLSeconds    uint
@@ -21,18 +24,35 @@ type Config struct {
 	LogMaxAgeDays    uint
 }
 
+type Plugin struct {
+	ID     string
+	Config Config `gorm:"serializer:json"`
+	Name   string
+}
+
 var gConf Config
 var gSvc *Service
 
 func New() interface{} {
-	logger.InitializeDefaultZapLogger()
-	defer func() {
-		message := recover()
-		if message != nil {
-			logger.Errorf("New: %v %s", message, string(debug.Stack()))
-		}
-	}()
-	logger.Infof("Plugin restarting: %v", gConf)
+	dsn := "postgres://kong:kongpass@kong-psql:5432/kong"
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
+
+	var plugin Plugin
+
+	// TODO: trung.bc - hardcode
+	if err := db.
+		Where("name = 'proxy-cache-graphql'").
+		First(&plugin).
+		Error; err != nil {
+		fmt.Println(err)
+	}
+
+	logger.InitializeDefaultZapLogger(int(plugin.Config.LogMaxFileSizeMB), int(plugin.Config.LogMaxAgeDays))
+	//logger.Infof("Plugin restarting: %v", plugin)
 
 	gConf = Config{}
 	gSvc = NewService()
@@ -62,7 +82,30 @@ func (c Config) Access(kong *pdk.PDK) {
 		return
 	}
 
-	//logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
 
 	if err := kong.Ctx.SetShared(CacheKey, cacheKey); err != nil {
 		logger.Errorf("err set shared context: %v", err)
