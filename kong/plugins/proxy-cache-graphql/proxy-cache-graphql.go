@@ -6,35 +6,46 @@ import (
 	"github.com/Kong/go-pdk"
 	"github.com/Kong/go-pdk/server"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"strconv"
 )
 
+// TODO: trung.bc - move to model
 type Config struct {
 	TTLSeconds       uint
 	ErrTTLSeconds    uint
 	Headers          []string
 	DisableNormalize bool
 
-	TurnOffRedis bool
+	LogFileSizeMaxMB uint
+	LogAgeMaxDays    uint
+}
+
+type Plugin struct {
+	ID     string
+	Config Config `gorm:"serializer:json"`
+	Name   string
 }
 
 var gConf Config
 var gSvc *Service
 
 func New() interface{} {
-	logger.InitializeDefaultZapLogger()
-	//defer func() {
-	//	message := recover()
-	//	if message != nil {
-	//		logger.Errorf("New: %v %s", message, string(debug.Stack()))
-	//	}
-	//}()
-	//logger.Infof("Plugin restarting: %v", gConf)
+	var plugin Plugin
 
-	gConf = Config{}
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", os.Getenv(EnvKongPgUser), os.Getenv(EnvKongPgPassword), os.Getenv(EnvKongPgHost), os.Getenv(EnvKongPgDatabase))
+	db, _ := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	err := db.Where("name = ?", PluginName).First(&plugin).Error
+
+	logger.NewDefaultZapLogger(int(plugin.Config.LogFileSizeMaxMB), int(plugin.Config.LogAgeMaxDays))
+	logger.Info("Restart plugin", "plugin", plugin, "err", err)
+
 	gSvc = NewService()
+	gConf = Config{}
 
 	return &gConf
 }
@@ -61,7 +72,10 @@ func (c Config) Access(kong *pdk.PDK) {
 		return
 	}
 
-	//logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	// Test log file size
+	for i := 0; i < 2; i++ {
+		logger.Debug("Test log file size", "cacheKey", cacheKey, "shouldCached", shouldCached, "err", err)
+	}
 
 	if err := kong.Ctx.SetShared(CacheKey, cacheKey); err != nil {
 		logger.Errorf("err set shared context: %v", err)
@@ -69,7 +83,6 @@ func (c Config) Access(kong *pdk.PDK) {
 	}
 
 	cacheVal, err := gSvc.GetCacheKey(cacheKey)
-	//logger.Debugf("cacheval: %s, err: %v", cacheVal, err)
 	if err != nil {
 		_ = kong.Response.SetHeader(HeaderXCacheStatus, string(Miss))
 		if err == redis.Nil {

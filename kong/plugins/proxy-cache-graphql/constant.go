@@ -5,6 +5,7 @@ const CacheKey = "CacheKey"
 const ResponseAlreadyCached = "ResponseAlreadyCached"
 const NanoSecond = 1e9
 const TTLSeconds = "TTL-Seconds"
+const PluginName = "proxy-cache-graphql"
 
 type CacheStatus string
 
@@ -35,4 +36,8 @@ const (
 	EnvRedisMasterPort   = "KONG_REDIS_MASTER_PORT"
 	EnvRedisReplicasHost = "KONG_REDIS_REPLICAS_HOST"
 	EnvRedisReplicasPort = "KONG_REDIS_REPLICAS_PORT"
+	EnvKongPgHost        = "KONG_PG_HOST"
+	EnvKongPgUser        = "KONG_PG_USER"
+	EnvKongPgPassword    = "KONG_PG_PASSWORD"
+	EnvKongPgDatabase    = "KONG_PG_DATABASE"
 )
