@@ -219,21 +219,26 @@ func (s *Service) hashNodeVal(nodeVal reflect.Value) string {
 }
 
 func (s *Service) HealthCheckRedis() {
-	// TODO: trung.bc - last time as service prop
-	if gLastTimeHealthCheckRedis.Add(time.Second * time.Duration(gConf.RedisHealthCheckIntervalSecond)).After(time.Now()) {
+	// TODO: trung.bc - update log format
+	logger.Infof("[Read]: %s", s.rdbRead.String())
+	logger.Infof("[Write]: %s", s.rdbWrite.String())
+
+	_, errReplicas := s.rdbReplicas.Ping(context.Background()).Result()
+	_, errMaster := s.rdbMaster.Ping(context.Background()).Result()
+
+	if errReplicas == nil && errMaster == nil {
+		s.rdbRead = s.rdbReplicas
 		return
 	}
 
-	gLastTimeHealthCheckRedis = time.Now()
+	if errReplicas != nil && errMaster != nil {
+		logger.Error("Both redis instances are death.")
+		return
+	}
 
-	// TODO: trung.bc - update log format
-	logger.Info(s.rdbRead.String())
-
-	_, err := s.rdbReplicas.Ping(context.Background()).Result()
-	if err != nil {
+	if errReplicas != nil {
 		s.rdbRead = s.rdbMaster
-		logger.Errorf("err Connecting to rdbRead: %v", err)
-	} else {
-		s.rdbRead = s.rdbReplicas
+		logger.Errorf("Replicas is death: %s", s.rdbReplicas.String())
+		return
 	}
 }

@@ -36,6 +36,7 @@ type Plugin struct {
 var gConf Config
 var gSvc *Service
 var gLastTimeHealthCheckRedis time.Time
+var gHealthCheckJob int
 
 func New() interface{} {
 	var plugin Plugin
@@ -49,15 +50,23 @@ func New() interface{} {
 
 	gSvc = NewService()
 	gLastTimeHealthCheckRedis = time.Now()
+	if gHealthCheckJob == 0 {
+		gHealthCheckJob++
+		go TestGR(plugin.Config.RedisHealthCheckIntervalSecond)
+	}
 	gConf = Config{}
 
 	return &gConf
 }
 
-func TestGR() {
+func TestGR(redisHealthCheckIntervalSecond uint) {
+	if redisHealthCheckIntervalSecond == 0 {
+		return
+	}
+
 	for {
-		logger.Debug(time.Now().String())
-		time.Sleep(time.Second * 5)
+		gSvc.HealthCheckRedis()
+		time.Sleep(time.Second * time.Duration(redisHealthCheckIntervalSecond))
 	}
 }
 
@@ -68,10 +77,6 @@ func (c Config) Access(kong *pdk.PDK) {
 			logger.Errorf("Access: %v %s", message, string(debug.Stack()))
 		}
 	}()
-
-	if gConf.RedisHealthCheckIntervalSecond > 0 {
-		gSvc.HealthCheckRedis()
-	}
 
 	// TODO: trung.bc - TD
 	_ = kong.ServiceRequest.ClearHeader(HeaderAcceptEncoding)
