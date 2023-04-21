@@ -51,10 +51,11 @@ services:
       - KONG_REDIS_REPLICAS_HOST=${KONG_REDIS_REPLICAS_HOST}
       - KONG_REDIS_REPLICAS_PORT=${KONG_REDIS_REPLICAS_PORT}
       - KONG_DATABASE=postgres
-      - KONG_NGINX_MAIN_ENV=${KONG_NGINX_MAIN_ENV:-KONG_REDIS_MASTER_HOST; env KONG_REDIS_MASTER_PORT; env KONG_REDIS_REPLICAS_HOST; env KONG_REDIS_REPLICAS_PORT}
-      - KONG_PG_HOST=kong-psql
-      - KONG_PG_USER=kong
-      - KONG_PG_PASSWORD=kongpass
+      - KONG_PG_HOST=${KONG_PG_HOST}
+      - KONG_PG_USER=${KONG_PG_USER}
+      - KONG_PG_DATABASE=${KONG_PG_DATABASE}
+      - KONG_PG_PASSWORD=${KONG_PG_PASSWORD}
+      - KONG_NGINX_MAIN_ENV=${KONG_NGINX_MAIN_ENV:-KONG_REDIS_MASTER_HOST; env KONG_REDIS_MASTER_PORT; env KONG_REDIS_REPLICAS_HOST; env KONG_REDIS_REPLICAS_PORT; env KONG_PG_HOST; env KONG_PG_USER; env KONG_PG_DATABASE; env KONG_PG_PASSWORD}
       - KONG_PROXY_ACCESS_LOG=/dev/stdout
       - KONG_ADMIN_ACCESS_LOG=/dev/stdout
       - KONG_PROXY_ERROR_LOG=/dev/stderr
@@ -74,6 +75,19 @@ services:
       - "8445:8445"
       - "8003:8003"
       - "8004:8004"
+  kong-promtail:
+    image: grafana/promtail:main
+    command: -config.file=/etc/promtail/config.yaml
+    volumes:
+      - ./promtail:/etc/promtail
+      - ./logs:/var/log
+  kong-prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./promtail/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
   fiber-app:
     build: ./fiber-app/.
     volumes:

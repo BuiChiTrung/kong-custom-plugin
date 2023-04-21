@@ -9,6 +9,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"strconv"
 )
@@ -20,8 +21,8 @@ type Config struct {
 	Headers          []string
 	DisableNormalize bool
 
-	LogMaxFileSizeMB uint
-	LogMaxAgeDays    uint
+	LogFileSizeMaxMB uint
+	LogAgeMaxDays    uint
 }
 
 type Plugin struct {
@@ -34,28 +35,17 @@ var gConf Config
 var gSvc *Service
 
 func New() interface{} {
-	dsn := "postgres://kong:kongpass@kong-psql:5432/kong"
-
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		panic(err)
-	}
-
 	var plugin Plugin
 
-	// TODO: trung.bc - hardcode
-	if err := db.
-		Where("name = 'proxy-cache-graphql'").
-		First(&plugin).
-		Error; err != nil {
-		fmt.Println(err)
-	}
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", os.Getenv(EnvKongPgUser), os.Getenv(EnvKongPgPassword), os.Getenv(EnvKongPgHost), os.Getenv(EnvKongPgDatabase))
+	db, _ := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	err := db.Where("name = ?", PluginName).First(&plugin).Error
 
-	logger.InitializeDefaultZapLogger(int(plugin.Config.LogMaxFileSizeMB), int(plugin.Config.LogMaxAgeDays))
-	//logger.Infof("Plugin restarting: %v", plugin)
+	logger.NewDefaultZapLogger(int(plugin.Config.LogFileSizeMaxMB), int(plugin.Config.LogAgeMaxDays))
+	logger.Info("Restart plugin", "plugin", plugin, "err", err)
 
-	gConf = Config{}
 	gSvc = NewService()
+	gConf = Config{}
 
 	return &gConf
 }
@@ -82,30 +72,10 @@ func (c Config) Access(kong *pdk.PDK) {
 		return
 	}
 
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
-	logger.Debugf("cachekey: %s, shouldcached: %b, err: %v", cacheKey, shouldCached, err)
+	// Test log file size
+	for i := 0; i < 2; i++ {
+		logger.Debug("Test log file size", "cacheKey", cacheKey, "shouldCached", shouldCached, "err", err)
+	}
 
 	if err := kong.Ctx.SetShared(CacheKey, cacheKey); err != nil {
 		logger.Errorf("err set shared context: %v", err)
@@ -113,7 +83,6 @@ func (c Config) Access(kong *pdk.PDK) {
 	}
 
 	cacheVal, err := gSvc.GetCacheKey(cacheKey)
-	//logger.Debugf("cacheval: %s, err: %v", cacheVal, err)
 	if err != nil {
 		_ = kong.Response.SetHeader(HeaderXCacheStatus, string(Miss))
 		if err == redis.Nil {

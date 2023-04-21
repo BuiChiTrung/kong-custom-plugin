@@ -40,7 +40,7 @@ type Logger struct {
 	*zap.SugaredLogger
 }
 
-func InitializeDefaultZapLogger(MaxSize int, MaxAge int) {
+func NewDefaultZapLogger(MaxSize int, MaxAge int) {
 	cfg := Config{
 		FileEnabled: true,
 		FileJson:    true,
