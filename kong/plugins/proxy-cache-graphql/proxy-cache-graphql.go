@@ -15,28 +15,10 @@ import (
 	"time"
 )
 
-// TODO: trung.bc - move to model
-type Config struct {
-	TTLSeconds       uint
-	ErrTTLSeconds    uint
-	Headers          []string
-	DisableNormalize bool
-
-	LogFileSizeMaxMB               uint
-	LogAgeMaxDays                  uint
-	RedisHealthCheckIntervalSecond uint
-}
-
-type Plugin struct {
-	ID     string
-	Config Config `gorm:"serializer:json"`
-	Name   string
-}
-
 var gConf Config
 var gSvc *Service
-var gLastTimeHealthCheckRedis time.Time
-var gHealthCheckJob int
+var isHealthCheckGrOn bool
+var gRedisHealthCheckIntervalSecond uint
 
 func New() interface{} {
 	var plugin Plugin
@@ -49,25 +31,31 @@ func New() interface{} {
 	logger.Info("Restart plugin", "plugin", plugin, "err", err)
 
 	gSvc = NewService()
-	gLastTimeHealthCheckRedis = time.Now()
-	if gHealthCheckJob == 0 {
-		gHealthCheckJob++
-		go TestGR(plugin.Config.RedisHealthCheckIntervalSecond)
-	}
 	gConf = Config{}
+
+	// TODO: trung.bc - refactor
+	gRedisHealthCheckIntervalSecond = plugin.Config.RedisHealthCheckIntervalSecond
+	if !isHealthCheckGrOn && gRedisHealthCheckIntervalSecond > 0 {
+		isHealthCheckGrOn = true
+		go HealthCheckRedis()
+	}
 
 	return &gConf
 }
 
-func TestGR(redisHealthCheckIntervalSecond uint) {
-	if redisHealthCheckIntervalSecond == 0 {
-		return
-	}
+func HealthCheckRedis() {
+	logger.Info("Start health check job")
 
 	for {
+		if gRedisHealthCheckIntervalSecond == 0 {
+			break
+		}
 		gSvc.HealthCheckRedis()
-		time.Sleep(time.Second * time.Duration(redisHealthCheckIntervalSecond))
+		time.Sleep(time.Second * time.Duration(gRedisHealthCheckIntervalSecond))
 	}
+
+	isHealthCheckGrOn = false
+	logger.Info("Stop health check job")
 }
 
 func (c Config) Access(kong *pdk.PDK) {
