@@ -8,6 +8,7 @@ import (
 	"github.com/BuiChiTrung/kong-custom-plugin/kong/logger"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -222,23 +223,60 @@ func (s *Service) HealthCheckRedis() {
 	// TODO: trung.bc - update log format
 	logger.Infof("[Read]: %s", s.rdbRead.String())
 	logger.Infof("[Write]: %s", s.rdbWrite.String())
+	logger.Infof("[Replicas]: %s", s.rdbReplicas.String())
+	logger.Infof("[Master]: %s", s.rdbMaster.String())
 
-	_, errReplicas := s.rdbReplicas.Ping(context.Background()).Result()
+	host, port := GetRdbHostPort(s.rdbMaster.String())
+	_, errReplicas := s.rdbReplicas.Do(context.Background(), "REPLICAOF", host, port).Result()
 	_, errMaster := s.rdbMaster.Ping(context.Background()).Result()
 
+	// Both instances are alive
 	if errReplicas == nil && errMaster == nil {
 		s.rdbRead = s.rdbReplicas
 		return
 	}
 
+	// Both instances are death
 	if errReplicas != nil && errMaster != nil {
 		logger.Error("Both redis instances are death.")
 		return
 	}
 
+	// Replicas is death
 	if errReplicas != nil {
 		s.rdbRead = s.rdbMaster
 		logger.Errorf("Replicas is death: %s", s.rdbReplicas.String())
 		return
 	}
+
+	// Master is death
+	//s.rdbReplicas.Config
+	host, port = GetRdbHostPort(s.rdbReplicas.String())
+
+	_, err := s.rdbReplicas.Do(context.Background(), "SLAVEOF", "NO", "ONE").Result()
+	if err != nil {
+		return
+	}
+
+	tmp := s.rdbMaster
+	s.rdbMaster = s.rdbReplicas
+	s.rdbReplicas = tmp
+
+	s.rdbRead = s.rdbMaster
+	s.rdbWrite = s.rdbMaster
+}
+
+// TODO: trung.bc - refactor
+func GetRdbHostPort(rdbAddr string) (string, string) {
+	re := regexp.MustCompile(`Redis<([^>]+)>`)
+	match := re.FindStringSubmatch(rdbAddr)
+
+	if len(match) <= 1 {
+		return "", ""
+	}
+
+	addr := strings.Split(match[1], " ")[0]
+	host := strings.Split(addr, ":")[0]
+	port := strings.Split(addr, ":")[1]
+	return host, port
 }

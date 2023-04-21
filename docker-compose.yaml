@@ -2,13 +2,14 @@ version: "3.7"
 services:
   kong-redis:
     image: redis:latest
+    command: "redis-server --replica-read-only no"
     volumes:
       - ./db/redis:/data
     ports:
       - "6379:6379"
   kong-redis-replicas:
     image: redis:latest
-    command: "redis-server --replicaof kong-redis 6379"
+    command: "redis-server --replicaof kong-redis 6379 --replica-read-only no"
     ports:
       - "6380:6379"
     restart: on-failure
