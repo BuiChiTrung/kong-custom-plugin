@@ -18,9 +18,12 @@ import (
 )
 
 type Service struct {
-	rdbWrite *redis.Client
-	rdbRead  *redis.Client
-	rdbCtx   context.Context
+	rdbMaster       *redis.Client
+	rdbReplicas     *redis.Client
+	rdbWrite        *redis.Client
+	rdbRead         *redis.Client
+	rdbCtx          context.Context
+	lastHealthCheck time.Time
 }
 
 func NewService() *Service {
@@ -29,6 +32,7 @@ func NewService() *Service {
 	rdbWrite := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%s", os.Getenv(EnvRedisMasterHost), os.Getenv(EnvRedisMasterPort)),
 	})
+	/// TODO: trung.bc - remove
 	_, err := rdbWrite.Ping(rdbCtx).Result()
 	if err != nil {
 		logger.Errorf("err Connecting to rdbWrite: %v", err)
@@ -43,9 +47,12 @@ func NewService() *Service {
 	}
 
 	return &Service{
-		rdbWrite: rdbWrite,
-		rdbRead:  rdbRead,
-		rdbCtx:   rdbCtx,
+		// TODO: trung.bc - update logic here
+		rdbMaster:   rdbWrite,
+		rdbReplicas: rdbRead,
+		rdbWrite:    rdbWrite,
+		rdbRead:     rdbRead,
+		rdbCtx:      rdbCtx,
 	}
 }
 
@@ -209,4 +216,24 @@ func (s *Service) hashNodeVal(nodeVal reflect.Value) string {
 	hashNode := fmt.Sprintf("%x", string(hashNodeBytes[:]))
 
 	return hashNode
+}
+
+func (s *Service) HealthCheckRedis() {
+	// TODO: trung.bc - last time as service prop
+	if gLastTimeHealthCheckRedis.Add(time.Second * time.Duration(gConf.RedisHealthCheckIntervalSecond)).After(time.Now()) {
+		return
+	}
+
+	gLastTimeHealthCheckRedis = time.Now()
+
+	// TODO: trung.bc - update log format
+	logger.Info(s.rdbRead.String())
+
+	_, err := s.rdbReplicas.Ping(context.Background()).Result()
+	if err != nil {
+		s.rdbRead = s.rdbMaster
+		logger.Errorf("err Connecting to rdbRead: %v", err)
+	} else {
+		s.rdbRead = s.rdbReplicas
+	}
 }
