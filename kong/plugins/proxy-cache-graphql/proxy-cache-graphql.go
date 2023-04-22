@@ -12,27 +12,13 @@ import (
 	"os"
 	"runtime/debug"
 	"strconv"
+	"time"
 )
-
-// TODO: trung.bc - move to model
-type Config struct {
-	TTLSeconds       uint
-	ErrTTLSeconds    uint
-	Headers          []string
-	DisableNormalize bool
-
-	LogFileSizeMaxMB uint
-	LogAgeMaxDays    uint
-}
-
-type Plugin struct {
-	ID     string
-	Config Config `gorm:"serializer:json"`
-	Name   string
-}
 
 var gConf Config
 var gSvc *Service
+var isHealthCheckGrOn bool
+var gRedisHealthCheckIntervalSecond uint
 
 func New() interface{} {
 	var plugin Plugin
@@ -47,11 +33,32 @@ func New() interface{} {
 	gSvc = NewService()
 	gConf = Config{}
 
+	// TODO: trung.bc - refactor
+	gRedisHealthCheckIntervalSecond = plugin.Config.RedisHealthCheckIntervalSecond
+	if !isHealthCheckGrOn && gRedisHealthCheckIntervalSecond > 0 {
+		isHealthCheckGrOn = true
+		go HealthCheckRedis()
+	}
+
 	return &gConf
 }
 
+func HealthCheckRedis() {
+	logger.Info("Start health check job")
+
+	for {
+		if gRedisHealthCheckIntervalSecond == 0 {
+			break
+		}
+		gSvc.HealthCheckRedis()
+		time.Sleep(time.Second * time.Duration(gRedisHealthCheckIntervalSecond))
+	}
+
+	isHealthCheckGrOn = false
+	logger.Info("Stop health check job")
+}
+
 func (c Config) Access(kong *pdk.PDK) {
-	// TODO: trung.bc - remove defer in access, log
 	defer func() {
 		message := recover()
 		if message != nil {
@@ -73,9 +80,9 @@ func (c Config) Access(kong *pdk.PDK) {
 	}
 
 	// Test log file size
-	for i := 0; i < 2; i++ {
-		logger.Debug("Test log file size", "cacheKey", cacheKey, "shouldCached", shouldCached, "err", err)
-	}
+	//for i := 0; i < 2; i++ {
+	//	logger.Debug("Test log file size", "cacheKey", cacheKey, "shouldCached", shouldCached, "err", err)
+	//}
 
 	if err := kong.Ctx.SetShared(CacheKey, cacheKey); err != nil {
 		logger.Errorf("err set shared context: %v", err)

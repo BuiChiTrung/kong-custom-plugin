@@ -1,19 +1,21 @@
 version: "3.7"
 services:
-  kong-redis:
+  kong-redis-1:
     image: redis:latest
+    container_name: kong-redis-1
+    command: "redis-server --replica-read-only no"
     volumes:
-      - ./db/redis:/data
+      - ./db/redis_master:/data
     ports:
       - "6379:6379"
-  kong-redis-replicas:
+  kong-redis-2:
     image: redis:latest
-    command: "redis-server --replicaof kong-redis 6379"
+    container_name: kong-redis-2
+    command: "redis-server --replica-read-only no"
     ports:
       - "6380:6379"
-    restart: on-failure
-    depends_on:
-      - kong-redis
+    volumes:
+      - ./db/redis_replicas:/data
   kong-psql:
     image: postgres:9.6
     volumes:
@@ -77,14 +79,14 @@ services:
       - "8004:8004"
   kong-promtail:
     image: grafana/promtail:main
-    command: -config.file=/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/promtail.yaml
     volumes:
-      - ./promtail:/etc/promtail
+      - ./config:/etc/promtail
       - ./logs:/var/log
   kong-prometheus:
     image: prom/prometheus
     volumes:
-      - ./promtail/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
 

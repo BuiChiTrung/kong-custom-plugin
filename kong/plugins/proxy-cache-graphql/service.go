@@ -5,12 +5,12 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"github.com/BuiChiTrung/kong-custom-plugin/kong/logger"
 	"os"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/BuiChiTrung/kong-custom-plugin/kong/logger"
 	"github.com/graphql-go/graphql/language/ast"
 	"github.com/graphql-go/graphql/language/parser"
 	"github.com/graphql-go/graphql/language/source"
@@ -18,34 +18,33 @@ import (
 )
 
 type Service struct {
-	rdbWrite *redis.Client
-	rdbRead  *redis.Client
-	rdbCtx   context.Context
+	rdbMaster       *redis.Client
+	rdbReplicas     *redis.Client
+	rdbWrite        *redis.Client
+	rdbRead         *redis.Client
+	rdbCtx          context.Context
+	lastHealthCheck time.Time
 }
 
 func NewService() *Service {
 	rdbCtx := context.Background()
 
-	rdbWrite := redis.NewClient(&redis.Options{
+	rdbMaster := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%s", os.Getenv(EnvRedisMasterHost), os.Getenv(EnvRedisMasterPort)),
 	})
-	_, err := rdbWrite.Ping(rdbCtx).Result()
-	if err != nil {
-		logger.Errorf("err Connecting to rdbWrite: %v", err)
-	}
+	rdbMaster.Do(context.Background(), "SLAVEOF", "NO", "ONE").Result()
 
-	rdbRead := redis.NewClient(&redis.Options{
+	rdbReplicas := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%s", os.Getenv(EnvRedisReplicasHost), os.Getenv(EnvRedisReplicasPort)),
 	})
-	_, err = rdbRead.Ping(rdbCtx).Result()
-	if err != nil {
-		logger.Errorf("err Connecting to rdbRead: %v", err)
-	}
+	rdbReplicas.Do(context.Background(), "REPLICAOF", os.Getenv(EnvRedisMasterHost), os.Getenv(EnvRedisMasterPort)).Result()
 
 	return &Service{
-		rdbWrite: rdbWrite,
-		rdbRead:  rdbRead,
-		rdbCtx:   rdbCtx,
+		rdbMaster:   rdbMaster,
+		rdbReplicas: rdbReplicas,
+		rdbWrite:    rdbMaster,
+		rdbRead:     rdbReplicas,
+		rdbCtx:      rdbCtx,
 	}
 }
 
@@ -209,4 +208,56 @@ func (s *Service) hashNodeVal(nodeVal reflect.Value) string {
 	hashNode := fmt.Sprintf("%x", string(hashNodeBytes[:]))
 
 	return hashNode
+}
+
+func (s *Service) HealthCheckRedis() {
+	logger.Infof("[RdbRead] %s", s.rdbRead.String())
+	logger.Infof("[RdbWrite] %s", s.rdbWrite.String())
+	logger.Infof("[RdbReplicas] %s", s.rdbReplicas.String())
+	logger.Infof("[RdbMaster] %s", s.rdbMaster.String())
+
+	host, port := GetRdbHostPort(s.rdbMaster)
+	_, errReplicas := s.rdbReplicas.Do(context.Background(), "REPLICAOF", host, port).Result()
+	_, errMaster := s.rdbMaster.Do(context.Background(), "SLAVEOF", "NO", "ONE").Result()
+
+	// Both instances are alive
+	if errReplicas == nil && errMaster == nil {
+		s.rdbRead = s.rdbReplicas
+		return
+	}
+
+	// Both instances are death
+	if errReplicas != nil && errMaster != nil {
+		logger.Error("Both redis instances are death.")
+		return
+	}
+
+	// Replicas instance is death
+	if errReplicas != nil {
+		logger.Errorf("Replicas instance is death: %s", s.rdbReplicas.String())
+		s.rdbRead = s.rdbMaster
+		return
+	}
+
+	// Master instance is death: promote replicas to master & update rdbRead, rdbWrite
+	logger.Errorf("Master instance is death: %s", s.rdbMaster.String())
+	host, port = GetRdbHostPort(s.rdbReplicas)
+
+	_, err := s.rdbReplicas.Do(context.Background(), "SLAVEOF", "NO", "ONE").Result()
+	if err != nil {
+		return
+	}
+
+	tmp := s.rdbMaster
+	s.rdbMaster = s.rdbReplicas
+	s.rdbReplicas = tmp
+
+	s.rdbRead = s.rdbMaster
+	s.rdbWrite = s.rdbMaster
+}
+
+func GetRdbHostPort(rdb *redis.Client) (string, string) {
+	options := rdb.Options()
+	addr := strings.Split(options.Addr, ":")
+	return addr[0], addr[1]
 }
