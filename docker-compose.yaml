@@ -64,7 +64,7 @@ services:
       - KONG_ADMIN_ERROR_LOG=/dev/stderr
       - KONG_ADMIN_LISTEN=0.0.0.0:8001
       - KONG_ADMIN_GUI_URL=http://localhost:8002
-      - KONG_PLUGINS=proxy-cache-graphql, hello-world, prometheus
+      - KONG_PLUGINS=proxy-cache-graphql, hello-world, prometheus, rate-limiting
       - KONG_PLUGINSERVER_NAMES=proxy-cache-graphql
       - KONG_PLUGINSERVER_PROXY_CACHE_GRAPHQL_START_CMD=/usr/local/bin/proxy-cache-graphql
       - KONG_PLUGINSERVER_PROXY_CACHE_GRAPHQL_QUERY_CMD=/usr/local/bin/proxy-cache-graphql -dump

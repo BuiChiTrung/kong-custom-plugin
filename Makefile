@@ -9,7 +9,7 @@ bootstrap:
 run fiber:
 	cd fiber-app && go run .
 kong-gateway:
-	docker exec -it -u root kong-gateway /bin/bash
+	docker exec -it -u root kong-custom-plugin-kong-gateway-1 /bin/bash
 redis-1:
 	docker exec -it -u root kong-redis-1 /bin/bash
 redis-2:
