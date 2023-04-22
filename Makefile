@@ -9,16 +9,16 @@ bootstrap:
 run fiber:
 	cd fiber-app && go run .
 kong-gateway:
-	docker exec -it -u root kong-custom-plugin-kong-gateway-1 /bin/bash
-redis-master:
-	docker exec -it -u root kong-custom-plugin-kong-redis-1 /bin/bash
-redis-replicas:
-	docker exec -it -u root kong-custom-plugin-kong-redis-replicas-1 /bin/bash
-stop-redis-master:
-	docker compose stop kong-redis
-stop-redis-replicas:
-	docker compose stop kong-redis-replicas
-start-redis-master:
-	docker compose start kong-redis
-start-redis-replicas:
-	docker compose start kong-redis-replicas
+	docker exec -it -u root kong-gateway /bin/bash
+redis-1:
+	docker exec -it -u root kong-redis-1 /bin/bash
+redis-2:
+	docker exec -it -u root kong-redis-2 /bin/bash
+stop-redis-1:
+	docker compose stop kong-redis-1
+stop-redis-2:
+	docker compose stop kong-redis-2
+start-redis-1:
+	docker compose start kong-redis-1
+start-redis-2:
+	docker compose start kong-redis-2

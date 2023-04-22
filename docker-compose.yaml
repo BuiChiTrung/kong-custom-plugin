@@ -1,14 +1,16 @@
 version: "3.7"
 services:
-  kong-redis:
+  kong-redis-1:
     image: redis:latest
+    container_name: kong-redis-1
     command: "redis-server --replica-read-only no"
     volumes:
       - ./db/redis_master:/data
     ports:
       - "6379:6379"
-  kong-redis-replicas:
+  kong-redis-2:
     image: redis:latest
+    container_name: kong-redis-2
     command: "redis-server --replica-read-only no"
     ports:
       - "6380:6379"
