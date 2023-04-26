@@ -1,0 +1,54 @@
+body {
+    background: #f3eeee;
+    height: 100vh;
+    margin: 0;
+    /*font-weight: bold;*/
+}
+
+#root {
+    height: 100%;
+}
+
+#request-generator {
+    position: absolute;
+    padding: 20px;
+    border: solid 1px black;
+    border-radius: 10px;
+    background: #ffffff;
+    height: auto;
+    margin: 30px;
+    bottom:0;
+    top:0;
+    left:0;
+    right:0;
+
+    display: flex;
+    flex-flow: column;
+}
+
+#generated-request-variable {
+    flex: 1 1 auto;
+}
+
+.back-to-home-btn {
+    position: absolute;
+    top: 25px;
+    right: 20px;
+    font-size: 16px;
+}
+
+/*#generated-request {*/
+/*    height: 100%;*/
+/*    padding: 50px;*/
+/*}*/
+
+pre {
+    position: absolute;
+    bottom:0;
+    top:20px;
+    left:16px;
+    right:16px;
+    /*height: 100%;*/
+    overflow-y: scroll;
+
+}
