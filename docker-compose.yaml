@@ -26,27 +26,26 @@ services:
       - POSTGRES_PASSWORD=kongpass
     ports:
       - "5432:5432"
-#  kong-gateway-db-bootstrap:
-#    image: kong/kong-gateway:3.1.1.3-alpine
-#    restart: on-failure
-#    depends_on:
-#      - kong-psql
-#    environment:
-#      - KONG_DATABASE=postgres
-#      - KONG_PG_HOST=kong-psql
-#      - KONG_PG_USER=kong
-#      - KONG_PG_PASSWORD=kongpass
-#    command: kong migrations bootstrap
+  kong-gateway-db-bootstrap:
+    image: kong/kong-gateway:3.1.1.3-alpine
+    restart: on-failure
+    depends_on:
+      - kong-psql
+    environment:
+      - KONG_PG_HOST=${KONG_PG_HOST}
+      - KONG_PG_USER=${KONG_PG_USER}
+      - KONG_PG_DATABASE=${KONG_PG_DATABASE}
+      - KONG_PG_PASSWORD=${KONG_PG_PASSWORD}
+    command: kong migrations bootstrap
   kong-gateway:
     image: kong/kong-gateway:3.1.1.3-alpine
     restart: on-failure
     volumes:
       - ./bin/proxy-cache-graphql:/usr/local/bin/proxy-cache-graphql
-      - ./kong/plugins/hello-world:/usr/local/share/lua/5.1/kong/plugins/hello-world
       - ./logs:/home/kong/logs
     depends_on:
       - kong-psql
-#      - kong-gateway-db-bootstrap
+      - kong-gateway-db-bootstrap
     environment:
       - KONG_REDIS_MASTER_HOST=${KONG_REDIS_MASTER_HOST}
       - KONG_REDIS_MASTER_PORT=${KONG_REDIS_MASTER_PORT}
@@ -64,7 +63,7 @@ services:
       - KONG_ADMIN_ERROR_LOG=/dev/stderr
       - KONG_ADMIN_LISTEN=0.0.0.0:8001
       - KONG_ADMIN_GUI_URL=http://localhost:8002
-      - KONG_PLUGINS=proxy-cache-graphql, hello-world, prometheus, rate-limiting
+      - KONG_PLUGINS=proxy-cache-graphql, prometheus, rate-limiting
       - KONG_PLUGINSERVER_NAMES=proxy-cache-graphql
       - KONG_PLUGINSERVER_PROXY_CACHE_GRAPHQL_START_CMD=/usr/local/bin/proxy-cache-graphql
       - KONG_PLUGINSERVER_PROXY_CACHE_GRAPHQL_QUERY_CMD=/usr/local/bin/proxy-cache-graphql -dump
