@@ -33,6 +33,10 @@ func New() interface{} {
 	gSvc = NewService()
 	gConf = Config{}
 
+	if err != nil {
+		return &gConf
+	}
+
 	// TODO: trung.bc - refactor
 	gRedisHealthCheckIntervalSecond = plugin.Config.RedisHealthCheckIntervalSecond
 	if !isHealthCheckGrOn && gRedisHealthCheckIntervalSecond > 0 {
