@@ -8,7 +8,7 @@ interface FormValue {
 
 interface Type {
     name: string
-    fields: Field
+    fields: Field[]
 }
 
 interface Field {

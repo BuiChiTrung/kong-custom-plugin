@@ -4,27 +4,16 @@ import BackToHomeBtn from "../component/BackToHomeBtn";
 import {Button, Col, Form, InputNumber, Row, Select} from "antd";
 import CodeHighlighter from "../component/CodeHighlighter";
 import "./RequestGenerator.css";
-import {Argument, FormValue, Field} from "./interfaces";
+import {Argument, FormValue, Field, Type} from "./interfaces";
+import {kongProxyURL, query, formInitialValues, FormLabel, Operation} from "./constants";
 
 const {generateRandomQuery} = require("ibm-graphql-query-generator")
 const {buildSchema, print} = require("graphql")
 const {buildClientSchema, printSchema} = require("graphql");
 const { Option } = Select;
-const query = "{\n" +
-    "  \"query\": \"\\n    query IntrospectionQuery {\\n      __schema {\\n        \\n        queryType { name }\\n        mutationType { name }\\n        subscriptionType { name }\\n        types {\\n          ...FullType\\n        }\\n        directives {\\n          name\\n          description\\n          \\n          locations\\n          args {\\n            ...InputValue\\n          }\\n        }\\n      }\\n    }\\n\\n    fragment FullType on __Type {\\n      kind\\n      name\\n      description\\n      \\n      fields(includeDeprecated: true) {\\n        name\\n        description\\n        args {\\n          ...InputValue\\n        }\\n        type {\\n          ...TypeRef\\n        }\\n        isDeprecated\\n        deprecationReason\\n      }\\n      inputFields {\\n        ...InputValue\\n      }\\n      interfaces {\\n        ...TypeRef\\n      }\\n      enumValues(includeDeprecated: true) {\\n        name\\n        description\\n        isDeprecated\\n        deprecationReason\\n      }\\n      possibleTypes {\\n        ...TypeRef\\n      }\\n    }\\n\\n    fragment InputValue on __InputValue {\\n      name\\n      description\\n      type { ...TypeRef }\\n      defaultValue\\n      \\n      \\n    }\\n\\n    fragment TypeRef on __Type {\\n      kind\\n      name\\n      ofType {\\n        kind\\n        name\\n        ofType {\\n          kind\\n          name\\n          ofType {\\n            kind\\n            name\\n            ofType {\\n              kind\\n              name\\n              ofType {\\n                kind\\n                name\\n                ofType {\\n                  kind\\n                  name\\n                  ofType {\\n                    kind\\n                    name\\n                  }\\n                }\\n              }\\n            }\\n          }\\n        }\\n      }\\n    }\\n  \"\n" +
-    "}"
-const host = 'localhost'
-const port = 8000
-
-const formInitialValues = {
-    depthProbability: 0.5,
-    breadthProbability: 0.5,
-    maxDepth: 4,
-    requestName: "",
-    argumentsToConsider: [],
-}
 
 let graphQLJSON: any;
+let graphQLQueryType: Type;
 
 const RequestGenerator: React.FC = () => {
     let {name} = useParams()
@@ -32,29 +21,28 @@ const RequestGenerator: React.FC = () => {
 
     const [generatedRequest, setGeneratedRequest] = useState<string>("Request")
     const [generatedVariable, setGeneratedVariable] = useState<Object>({})
-    const [availableRequests, setAvailableRequests] = useState<Field[]>([])
+    const [availableFields, setAvailableFields] = useState<Field[]>([])
     const [availableArguments, setAvailableArguments] = useState<Argument[]>([])
 
-    const onSelectRequest = (requestName: string) => {
-        let chosenRequest: any = {}
+    const onSelectField = (fieldName: string) => {
+        let chosenField: Field
 
-        form.resetFields(["argumentsToConsider"])
-        for (let i = 0; i < availableRequests.length; i++) {
-            let request = availableRequests[i]
-            if (request.name === requestName) {
-                chosenRequest = availableRequests[i]
-                setAvailableArguments(request.args)
+        form.resetFields([FormLabel.ArgumentsToConsider])
+        for (let i = 0; i < availableFields.length; i++) {
+            let field = availableFields[i]
+            if (field.name === fieldName) {
+                chosenField = availableFields[i]
+                setAvailableArguments(field.args)
                 break
             }
         }
 
-        let graphQLTypes = graphQLJSON["__schema"]["types"]
-        for (let i = 0; i < graphQLTypes.length; i++) {
-            if (graphQLTypes[i].name === "Query") {
-                graphQLTypes[i].fields = [chosenRequest]
-                break
-            }
+        // @ts-ignore
+        if (chosenField === undefined) {
+            return
         }
+
+        graphQLQueryType.fields = [chosenField!]
     }
 
     const onGenerateRequest = (values: FormValue) => {
@@ -85,7 +73,7 @@ const RequestGenerator: React.FC = () => {
     };
 
     useEffect(() => {
-        fetch(`http://${host}:${port}/${name}/graphql`, {
+        fetch(`${kongProxyURL}/${name}/graphql`, {
             method: 'post',
             headers: {'Content-Type': 'application/json'},
             body: query,
@@ -96,19 +84,19 @@ const RequestGenerator: React.FC = () => {
                 let types = graphQLJSON["__schema"]["types"]
 
                 for (let i = 0; i < types.length; i++) {
-                    if (types[i].name !== "Query") {
+                    if (types[i].name !== Operation.Query) {
                         continue
                     }
 
-                    let requests = types[i]["fields"]
-                    if (requests.length === 0) {
+                    graphQLQueryType = types[i]
+
+                    let fields = types[i].fields
+                    if (fields.length === 0) {
                         break
                     }
 
-                    setAvailableRequests(requests)
-                    setAvailableArguments(requests[0].args)
-                    // TODO: trung.bc - hardcode
-                    form.setFieldValue("requestName", requests[0].name)
+                    setAvailableFields(fields)
+                    setAvailableArguments(fields[0].args)
                 }
             })
             .catch((err) => {
@@ -127,7 +115,7 @@ const RequestGenerator: React.FC = () => {
                 <Col className="gutter-row" span={4}>
                     <Form.Item
                         label="Depth Probability"
-                        name="depthProbability"
+                        name={FormLabel.DepthProbability}
                         rules={[
                             { required: true, message: 'Please provide Depth Probability'},
                         ]}
@@ -138,8 +126,8 @@ const RequestGenerator: React.FC = () => {
                 <Col className="gutter-row" span={4}>
                     <Form.Item
                         label="Breadth Probability"
-                        name="breadthProbability"
-                        rules={[{ required: true}]}
+                        name={FormLabel.BreadthProbability}
+                        rules={[{ required: true, message: 'Please provide Breadth Probability'}]}
                     >
                         <InputNumber style={{ width: '100%' }} step={0.1} min={0} max={1} />
                     </Form.Item>
@@ -147,25 +135,24 @@ const RequestGenerator: React.FC = () => {
                 <Col className="gutter-row" span={4}>
                     <Form.Item
                         label="Max depth"
-                        name="maxDepth"
-                        rules={[{ required: true}]}
+                        name={FormLabel.MaxDepth}
+                        rules={[{ required: true, message: 'Please provide Max depth'}]}
                     >
                         <InputNumber style={{ width: '100%' }} min={1} max={7}/>
                     </Form.Item>
                 </Col>
                 <Col className="gutter-row" span={4}>
                     <Form.Item
-                        name="requestName"
-                        label="Request Name"
+                        label="Field name"
+                        name={FormLabel.FieldName}
                         rules={[
-                            { required: true, message: 'Please select your request!' },
+                            { required: true, message: 'Please select your field!' },
                         ]}
                     >
-                        {/* trung.bc - default option */}
-                        <Select placeholder="Please select a request" onSelect={onSelectRequest}>
+                        <Select placeholder="Please select a field" onSelect={onSelectField}>
                             {
-                                availableRequests.map((request: any) =>
-                                    <Option value={request["name"]} key={request["name"]}>{request["name"]}</Option>
+                                availableFields.map((field: Field) =>
+                                    <Option value={field.name} key={field.name}>{field.name}</Option>
                                 )
                             }
                         </Select>
@@ -174,13 +161,13 @@ const RequestGenerator: React.FC = () => {
 
                 <Col className="gutter-row" span={5}>
                     <Form.Item
-                        name="argumentsToConsider"
-                        label="Arguments To Consider"
+                        name={FormLabel.ArgumentsToConsider}
+                        label="Arguments to consider"
                     >
                         <Select mode="multiple">
                             {
-                                availableArguments.map((arg: any) =>
-                                    <Option value={arg["name"]} key={arg["name"]}>{arg["name"]}</Option>
+                                availableArguments.map((arg: Argument) =>
+                                    <Option value={arg.name} key={arg.name}>{arg.name}</Option>
                                 )
                             }
                         </Select>

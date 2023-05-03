@@ -99,3 +99,9 @@ services:
     environment:
       - KONG_REDIS_MASTER_HOST=${KONG_REDIS_MASTER_HOST}
       - KONG_REDIS_MASTER_PORT=${KONG_REDIS_MASTER_PORT}
+  graphql-portal:
+    build: ./graphql-portal/.
+    volumes:
+      - ./graphql-portal/:/app/
+    ports:
+      - "3001:3000"

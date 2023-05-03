@@ -1,16 +1,13 @@
-// import {GraphQLVoyager, Voyager} from "graphql-voyager";
-import React, {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 import {Voyager} from "graphql-voyager";
 import BackToHomeBtn from "../component/BackToHomeBtn";
-import {buildClientSchema} from "graphql/index";
+import {kongProxyURL} from "./constants";
 
 
 const ServiceVisualize: React.FC = () => {
     let {name} = useParams()
-    let host = 'localhost'
     function introspectionProvider(query: any) {
-        return fetch(`http://${host}:8000/${name}/graphql`, {
+        return fetch(`${kongProxyURL}/${name}/graphql`, {
             method: 'post',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query: query }),

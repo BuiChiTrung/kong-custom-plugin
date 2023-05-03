@@ -101,10 +101,10 @@ func (c Config) Access(kong *pdk.PDK) {
 		_ = kong.Ctx.SetShared(ResponseAlreadyCached, true)
 
 		kong.Response.Exit(200, cacheVal, map[string][]string{
-			HeaderContentType:              {"application/json"},
-			HeaderXCacheKey:                {cacheKey},
-			HeaderXCacheStatus:             {string(Hit)},
-			HeaderAccessControlAllowOrigin: {"*"},
+			HeaderContentType:  {"application/json"},
+			HeaderXCacheKey:    {cacheKey},
+			HeaderXCacheStatus: {string(Hit)},
+			//HeaderAccessControlAllowOrigin: {"*"},
 		})
 	}
 }

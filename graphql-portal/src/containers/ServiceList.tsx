@@ -2,6 +2,7 @@ import {Space, Table, Tag} from "antd";
 import axios from "axios";
 import React, {useEffect, useState} from "react";
 import {Link} from "react-router-dom";
+import {kongProxyURL} from "./constants";
 
 interface Service {
     id: string
@@ -26,7 +27,7 @@ const columns = [
         key: 'protocol',
         sorter: (a: Service, b: Service) => a.protocol.localeCompare(b.protocol),
         render: (_ : any, { protocol } : Service) => {
-            let color = protocol == 'http' ? 'volcano' : 'green';
+            let color = protocol === 'http' ? 'volcano' : 'green';
             return (
                 <Tag color={color} key={protocol}>
                     {protocol.toUpperCase()}
@@ -59,12 +60,10 @@ const ServiceList: React.FC = () => {
     const [services, setServices] = useState<Service[]>([])
 
     useEffect(() => {
-        let host = 'kong-gateway-1'
-        host = 'localhost'
         const config = {
             method: 'get',
             maxBodyLength: Infinity,
-            url: `http://${host}:8000/services`,
+            url: `${kongProxyURL}/services`,
         };
 
         axios(config)
