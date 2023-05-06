@@ -1,14 +1,14 @@
 package main
 
 type Config struct {
-	TTLSeconds       uint
-	ErrTTLSeconds    uint
+	TTLSeconds       uint `json:"ttl_seconds"`
+	ErrTTLSeconds    uint `json:"err_ttl_seconds"`
 	Headers          []string
-	DisableNormalize bool
+	DisableNormalize bool `json:"disable_normalize"`
 
-	LogFileSizeMaxMB               uint
-	LogAgeMaxDays                  uint
-	RedisHealthCheckIntervalSecond uint
+	LogFileSizeMaxMB               uint `json:"log_file_size_max_mb"`
+	LogAgeMaxDays                  uint `json:"log_age_max_days"`
+	RedisHealthCheckIntervalSecond uint `json:"redis_health_check_interval_second"`
 }
 
 type Plugin struct {

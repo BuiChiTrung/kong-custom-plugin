@@ -25,10 +25,10 @@ func New() interface{} {
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", os.Getenv(EnvKongPgUser), os.Getenv(EnvKongPgPassword), os.Getenv(EnvKongPgHost), os.Getenv(EnvKongPgDatabase))
 	db, _ := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	err := db.Where("name = ?", PluginName).Find(&plugin).Error
+	err := db.Where("name = ?", PluginName).Order("created_at").Find(&plugin).Error
 
 	logger.NewDefaultZapLogger(int(plugin.Config.LogFileSizeMaxMB), int(plugin.Config.LogAgeMaxDays))
-	logger.Info("Restart plugin", "plugin", plugin, "err", err)
+	logger.Info("Restart plugin config", "First plugin", plugin, "err", err)
 
 	gSvc = NewService()
 	gConf = Config{}
@@ -168,14 +168,13 @@ func (c Config) Log(kong *pdk.PDK) {
 }
 
 func (c Config) InsertCacheKey(kong *pdk.PDK, cacheKey string, cacheValue string) {
-	logger.Infof("Insert Cache-key: %s", cacheKey)
-
 	statusCode, _ := kong.ServiceResponse.GetStatus()
 	if statusCode >= http.StatusInternalServerError {
 		return
 	}
 
 	if statusCode >= http.StatusBadRequest && c.ErrTTLSeconds > 0 {
+		logger.Infof("Insert Cache-key: %s in %d seconds", cacheKey, c.ErrTTLSeconds)
 		if err := gSvc.InsertCacheKey(cacheKey, cacheValue, int64(c.ErrTTLSeconds)*int64(NanoSecond)); err != nil {
 			logger.Errorf("err set redis key: %v", err)
 		}
@@ -195,6 +194,7 @@ func (c Config) InsertCacheKey(kong *pdk.PDK, cacheKey string, cacheValue string
 		ttlSeconds = uint(ttlHeader)
 	}
 
+	logger.Infof("Insert Cache-key: %s in %d seconds", cacheKey, ttlSeconds)
 	if err := gSvc.InsertCacheKey(cacheKey, cacheValue, int64(ttlSeconds)*int64(NanoSecond)); err != nil {
 		logger.Errorf("error set redis key: %v", err)
 	}
