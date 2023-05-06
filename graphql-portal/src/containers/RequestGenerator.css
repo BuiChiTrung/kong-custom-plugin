@@ -42,7 +42,7 @@ body {
 /*    padding: 50px;*/
 /*}*/
 
-pre {
+.code-highlighter {
     position: absolute;
     bottom:0;
     top:20px;
@@ -50,5 +50,4 @@ pre {
     right:16px;
     /*height: 100%;*/
     overflow-y: scroll;
-
 }

@@ -15,7 +15,7 @@ const CodeHighlighter = (prop: Prop) => {
     }, [prop.code]);
 
     return (
-        <pre>
+        <pre className="code-highlighter">
       <code className={`language-${prop.language}`}>{prop.code}</code>
     </pre>
     );

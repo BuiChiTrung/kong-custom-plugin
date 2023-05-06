@@ -22,10 +22,7 @@ var gRedisHealthCheckIntervalSecond uint
 
 func New() interface{} {
 	plugin := Plugin{}
-	// TODO: trung.bc - remove
-	//logger.NewDefaultZapLogger(0, 0)
 
-	//
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", os.Getenv(EnvKongPgUser), os.Getenv(EnvKongPgPassword), os.Getenv(EnvKongPgHost), os.Getenv(EnvKongPgDatabase))
 	db, _ := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	err := db.Where("name = ?", PluginName).Find(&plugin).Error
