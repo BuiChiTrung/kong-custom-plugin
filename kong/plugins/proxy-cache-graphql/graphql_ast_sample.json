@@ -1,208 +1,96 @@
 {
-		"Kind": "Document",
-		"Loc": null,
-		"Definitions": [
-			{
-				"Kind": "OperationDefinition",
+	"Kind": "Document",
+	"Loc": null,
+	"Definitions": [
+		{
+			"Kind": "OperationDefinition",
+			"Loc": null,
+			"Operation": "query",
+			"Name": {
+				"Kind": "Name",
 				"Loc": null,
-				"Operation": "query",
-				"Name": {
-					"Kind": "Name",
-					"Loc": null,
-					"Value": "FindIssueID"
-				},
-				"VariableDefinitions": [
+				"Value": "Country"
+			},
+			"VariableDefinitions": [],
+			"Directives": [],
+			"SelectionSet": {
+				"Kind": "SelectionSet",
+				"Loc": null,
+				"Selections": [
 					{
-						"Kind": "VariableDefinition",
+						"Kind": "Field",
 						"Loc": null,
-						"Variable": {
-							"Kind": "Variable",
+						"Alias": null,
+						"Name": {
+							"Kind": "Name",
 							"Loc": null,
-							"Name": {
-								"Kind": "Name",
-								"Loc": null,
-								"Value": "login"
-							}
+							"Value": "country"
 						},
-						"Type": {
-							"Kind": "NonNull",
-							"Loc": null,
-							"Type": {
-								"Kind": "Named",
+						"Arguments": [
+							{
+								"Kind": "Argument",
 								"Loc": null,
 								"Name": {
 									"Kind": "Name",
 									"Loc": null,
-									"Value": "String"
+									"Value": "code"
+								},
+								"Value": {
+									"Kind": "StringValue",
+									"Loc": null,
+									"Value": "VN"
 								}
 							}
-						},
-						"DefaultValue": null
-					}
-				],
-				"Directives": [],
-				"SelectionSet": {
-					"Kind": "SelectionSet",
-					"Loc": null,
-					"Selections": [
-						{
-							"Kind": "Field",
+						],
+						"Directives": [],
+						"SelectionSet": {
+							"Kind": "SelectionSet",
 							"Loc": null,
-							"Alias": null,
-							"Name": {
-								"Kind": "Name",
-								"Loc": null,
-								"Value": "repository"
-							},
-							"Arguments": [
+							"Selections": [
 								{
-									"Kind": "Argument",
+									"Kind": "Field",
 									"Loc": null,
+									"Alias": null,
 									"Name": {
 										"Kind": "Name",
 										"Loc": null,
-										"Value": "owner"
+										"Value": "capital"
 									},
-									"Value": {
-										"Kind": "StringValue",
-										"Loc": null,
-										"Value": "octocat"
-									}
+									"Arguments": [],
+									"Directives": [],
+									"SelectionSet": null
 								},
 								{
-									"Kind": "Argument",
+									"Kind": "Field",
 									"Loc": null,
+									"Alias": null,
+									"Name": {
+										"Kind": "Name",
+										"Loc": null,
+										"Value": "emoji"
+									},
+									"Arguments": [],
+									"Directives": [],
+									"SelectionSet": null
+								},
+								{
+									"Kind": "Field",
+									"Loc": null,
+									"Alias": null,
 									"Name": {
 										"Kind": "Name",
 										"Loc": null,
 										"Value": "name"
 									},
-									"Value": {
-										"Kind": "StringValue",
-										"Loc": null,
-										"Value": "Hello-World"
-									}
+									"Arguments": [],
+									"Directives": [],
+									"SelectionSet": null
 								}
-							],
-							"Directives": [],
-							"SelectionSet": {
-								"Kind": "SelectionSet",
-								"Loc": null,
-								"Selections": [
-									{
-										"Kind": "Field",
-										"Loc": null,
-										"Alias": null,
-										"Name": {
-											"Kind": "Name",
-											"Loc": null,
-											"Value": "issue"
-										},
-										"Arguments": [
-											{
-												"Kind": "Argument",
-												"Loc": null,
-												"Name": {
-													"Kind": "Name",
-													"Loc": null,
-													"Value": "number"
-												},
-												"Value": {
-													"Kind": "IntValue",
-													"Loc": null,
-													"Value": "2520"
-												}
-											}
-										],
-										"Directives": [],
-										"SelectionSet": {
-											"Kind": "SelectionSet",
-											"Loc": null,
-											"Selections": [
-												{
-													"Kind": "Field",
-													"Loc": null,
-													"Alias": null,
-													"Name": {
-														"Kind": "Name",
-														"Loc": null,
-														"Value": "id"
-													},
-													"Arguments": [],
-													"Directives": [],
-													"SelectionSet": null
-												}
-											]
-										}
-									}
-								]
-							}
-						},
-						{
-							"Kind": "Field",
-							"Loc": null,
-							"Alias": null,
-							"Name": {
-								"Kind": "Name",
-								"Loc": null,
-								"Value": "user"
-							},
-							"Arguments": [
-								{
-									"Kind": "Argument",
-									"Loc": null,
-									"Name": {
-										"Kind": "Name",
-										"Loc": null,
-										"Value": "login"
-									},
-									"Value": {
-										"Kind": "Variable",
-										"Loc": null,
-										"Name": {
-											"Kind": "Name",
-											"Loc": null,
-											"Value": "login"
-										}
-									}
-								}
-							],
-							"Directives": [],
-							"SelectionSet": {
-								"Kind": "SelectionSet",
-								"Loc": null,
-								"Selections": [
-									{
-										"Kind": "Field",
-										"Loc": null,
-										"Alias": null,
-										"Name": {
-											"Kind": "Name",
-											"Loc": null,
-											"Value": "bio"
-										},
-										"Arguments": [],
-										"Directives": [],
-										"SelectionSet": null
-									},
-									{
-										"Kind": "Field",
-										"Loc": null,
-										"Alias": null,
-										"Name": {
-											"Kind": "Name",
-											"Loc": null,
-											"Value": "avatarUrl"
-										},
-										"Arguments": [],
-										"Directives": [],
-										"SelectionSet": null
-									}
-								]
-							}
+							]
 						}
-					]
-				}
+					}
+				]
 			}
-		]
-	}
+		}
+	]
+}

@@ -138,7 +138,7 @@ const RequestGenerator: React.FC = () => {
                         name={FormLabel.MaxDepth}
                         rules={[{ required: true, message: 'Please provide Max depth'}]}
                     >
-                        <InputNumber style={{ width: '100%' }} min={1} max={7}/>
+                        <InputNumber style={{ width: '100%' }} min={2} max={5}/>
                     </Form.Item>
                 </Col>
                 <Col className="gutter-row" span={4}>

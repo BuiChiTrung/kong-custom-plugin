@@ -3,6 +3,10 @@ This repo contains plugins to enhance the experience of using GraphQL API with K
 
 ## Proxy cache plugin
 Used to cached GraphQL query response. The plugin support most of the features provided by Kong Enterprise [GraphQL Proxy Caching Advanced](https://docs.konghq.com/hub/kong-inc/graphql-proxy-cache-advanced/) plugin along with additional features:
+
++ Cached request is stored in redis
++ Integrate with Loki & Prometheus
+
 + Recognize mutilple requests are the same and returned the cached result already created when making the first request instead of making query to upstream service again. Support cases:
   + Ex1: All requests contain the same fields but the order are not identical:
     ```
@@ -94,8 +98,12 @@ Used to cached GraphQL query response. The plugin support most of the features p
 
 ### Plugin config
 
-+ `ttlseconds` - `int`: the cache key time to live seconds
-+  `varyheaders` - `[]string`: the list of header used to create cache key. 
++ `TTLseconds`: the expired time of request. 
++ `ErrTTLSeconds`: the expired time of error request with 4xx status (default = `TTLSeconds`)
++  `Headers`: the list of header used to create cache key. 
++  `LogFileSizeMaxMB`: the max size of a log file.
++  `LogAgeMaxDays`: expire date of log file.
++  `RedisHealthCheckIntervalSecond`: the time a job is executed to check redis health periodically
 
 ### Plugin APIs
 
@@ -129,8 +137,14 @@ Written using Fiber framework: `./fiber-app`. Cache key used for these APIs can 
   curl --location --request DELETE 'http://localhost:9080/proxy-cache'
   ```
 
-## GraphQL schema version management
-+ Coming soon. 
+## GraphQL portal
+
+This plugin is intergated with several popular libraries for GraphQL to use for all GraphQL services registered in Kong (**these services must have `graphql` tag**) including:
+
++ [graphiql](https://github.com/graphql/graphiql): GraphQL IDE provide playground to test your GraphQL APIs.
+
++ [graphql-voyager](https://github.com/graphql-kit/graphql-voyager): Represent any GraphQL API as an interactive graph.
++ [graphql-query-generator](https://github.com/IBM/graphql-query-generator): Used to generate GraphQL query randomly from a given schema.
 
 ## Installation
 
@@ -189,7 +203,6 @@ curl --location 'http://localhost:8001/routes/ROUTE_NAME|ROUTE_ID/plugins' \
 
 ## Folder structure
 + bin: binary built Go file.
-+ db: docker volume to store Kong db schema (it will be removed in next versions).
 + fiber-app: an application server written using fiber framework which provide API to all plugins.
 + kong/plugins: plugin source code
   + go-wait: test plugin written in Go.

@@ -26,17 +26,17 @@ services:
       - POSTGRES_PASSWORD=kongpass
     ports:
       - "5432:5432"
-#  kong-gateway-db-bootstrap:
-#    image: kong/kong-gateway:3.1.1.3-alpine
-#    restart: on-failure
-#    depends_on:
-#      - kong-psql
-#    environment:
-#      - KONG_PG_HOST=${KONG_PG_HOST}
-#      - KONG_PG_USER=${KONG_PG_USER}
-#      - KONG_PG_DATABASE=${KONG_PG_DATABASE}
-#      - KONG_PG_PASSWORD=${KONG_PG_PASSWORD}
-#    command: kong migrations bootstrap
+  kong-gateway-db-bootstrap:
+    image: kong/kong-gateway:3.1.1.3-alpine
+    restart: on-failure
+    depends_on:
+      - kong-psql
+    environment:
+      - KONG_PG_HOST=${KONG_PG_HOST}
+      - KONG_PG_USER=${KONG_PG_USER}
+      - KONG_PG_DATABASE=${KONG_PG_DATABASE}
+      - KONG_PG_PASSWORD=${KONG_PG_PASSWORD}
+    command: kong migrations bootstrap
   kong-gateway:
     image: kong/kong-gateway:3.1.1.3-alpine
     restart: on-failure
@@ -104,3 +104,9 @@ services:
       - ./graphql-portal/:/app/
     ports:
       - "3001:3000"
+  countries:
+    build: ./countries/.
+    volumes:
+      - ./countries/:/app/
+    ports:
+      - "8787:8787"

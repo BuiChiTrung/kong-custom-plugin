@@ -117,6 +117,7 @@ func (c Config) GenerateCacheKey(kong *pdk.PDK) (cacheKey string, shouldCached b
 	var requestHeader string
 	for _, header := range c.Headers {
 		headerContent, _ := kong.Request.GetHeader(header)
+		logger.Infof("Header %s: %s", header, headerContent)
 		requestHeader += headerContent
 	}
 
